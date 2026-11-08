@@ -7,7 +7,8 @@
 			"**/*.mjs",
 			"**/*.json",
 			"!**/package-lock.json",
-			"!openspec"
+			"!openspec",
+			"!dist"
 		]
 	},
 	"formatter": {
