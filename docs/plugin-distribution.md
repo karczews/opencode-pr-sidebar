@@ -755,7 +755,14 @@ npm cache tree.
 
 ## 5. Concrete recommendation for this repo
 
-Current state (from `package.json`, `tui.tsx`, `model.ts`, `.gitignore`):
+> **Status (2026-11-08): applied.** `package.json` is now
+> `opencode-pr-sidebar@0.1.0` with `exports["./tui"]`, `files`, runtime
+> `dependencies`, optional peers, and advisory `engines.opencode`; the packlist
+> contains `tui.tsx`, `model.ts`, `README.md`, `LICENSE`. The remaining work is
+> verifying the packaged install against the raw-TSX risk in §3.5.
+
+Original state before the change (from `package.json`, `tui.tsx`, `model.ts`,
+`.gitignore`):
 
 - `"name": "pr-sidebar"`, `"version": "0.0.0"`, `"private": true`,
   `"type": "module"`, 8 scripts, **no `exports`, no `files`, no
@@ -764,9 +771,9 @@ Current state (from `package.json`, `tui.tsx`, `model.ts`, `.gitignore`):
   `@opencode/plugin/tui`, `solid-js`, and `./model.ts`; default-exports
   `Plugin.define({ id: "pr-sidebar", setup })`.
 - `model.ts` imports only `node:child_process`.
-- All SDK packages are `devDependencies` pinned to `2.2.6` / `0.8.3` / `1.9.9`.
+- All SDK packages were `devDependencies` pinned to `2.2.6` / `0.8.3` / `1.9.9`.
 
-### 5.1 Minimum `package.json` changes for `opencode plugin add github:karczews/opencode-pr-sidebar`
+### 5.1 The `package.json` changes for `opencode plugin add github:karczews/opencode-pr-sidebar`
 
 ```json
 {
@@ -862,7 +869,7 @@ not the workspace copy ([build/plugins – Publish](https://opencode.ai/v2/docs/
 | Build scripts | must avoid `build`/`prepare`/… (§3.3) | same |
 | Raw `.tsx` under `node_modules` | **at risk** (§3.5) | **at risk** (same cache layout) |
 
-**Recommendation:** do the §5.1 manifest work and test the GitHub spec first
+**Recommendation:** the §5.1 manifest work is done; test the GitHub spec next
 (it needs no account and the repo is already public), but **do not assume the
 current raw `tui.tsx` renders once installed** — issue
 [#39986](https://github.com/anomalyco/opencode/issues/39986) is open and was

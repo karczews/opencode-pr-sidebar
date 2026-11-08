@@ -1,9 +1,26 @@
 {
-	"name": "pr-sidebar",
-	"version": "0.0.0",
-	"private": true,
+	"name": "opencode-pr-sidebar",
+	"version": "0.1.0",
+	"private": false,
 	"type": "module",
 	"description": "Current-branch GitHub PR card for the OpenCode TUI sidebar",
+	"license": "MIT",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/karczews/opencode-pr-sidebar.git"
+	},
+	"exports": {
+		"./tui": "./tui.tsx"
+	},
+	"files": [
+		"tui.tsx",
+		"model.ts",
+		"README.md",
+		"LICENSE"
+	],
+	"engines": {
+		"opencode": ">=2.2.6"
+	},
 	"scripts": {
 		"fmt": "biome format --write .",
 		"fmt-check": "biome format .",
@@ -14,15 +31,33 @@
 		"check": "npm run fmt-check && npm run lint && npm run typecheck && npm test && npm run test:register && npm run test:render",
 		"test:register": "node --conditions=browser --test tui-register.test.mjs"
 	},
+	"dependencies": {
+		"@opencode/plugin": "2.2.6"
+	},
+	"peerDependencies": {
+		"@opentui/core": ">=0.6.6",
+		"@opentui/solid": ">=0.6.6",
+		"solid-js": ">=1.9.0"
+	},
+	"peerDependenciesMeta": {
+		"@opentui/core": {
+			"optional": true
+		},
+		"@opentui/solid": {
+			"optional": true
+		},
+		"solid-js": {
+			"optional": true
+		}
+	},
 	"devDependencies": {
 		"@biomejs/biome": "2.6.6",
 		"@opencode/client": "2.2.6",
-		"@opencode/plugin": "2.2.6",
 		"@opencode/theme": "2.2.6",
 		"@opentui/core": "0.8.3",
 		"@opentui/solid": "0.8.3",
 		"@types/node": "26.6.6",
-		"solid-js": "1.9.9",
+		"solid-js": "1.9.18",
 		"typescript": "5.9.3"
 	}
 }

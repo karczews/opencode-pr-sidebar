@@ -14,8 +14,23 @@ needs no extra credentials and makes no model calls.
 
 ## Install
 
-Register the plugin directory in the global CLI config
-(`~/.config/opencode/cli.json`), adding it alongside any existing entries:
+### From GitHub
+
+```sh
+opencode plugin add github:karczews/opencode-pr-sidebar
+# pin a release tag if you prefer:
+opencode plugin add 'github:karczews/opencode-pr-sidebar#v0.1.0'
+```
+
+OpenCode installs the package into its own cache and adds the spec to
+`~/.config/opencode/cli.json` automatically. Restart OpenCode and open a
+repository checkout on a branch that has a pull request. The Plugins dialog
+shows `pr-sidebar` once it loads.
+
+### From a local checkout
+
+Point `~/.config/opencode/cli.json` at the directory, alongside any existing
+entries:
 
 ```json
 {
@@ -24,10 +39,9 @@ Register the plugin directory in the global CLI config
 }
 ```
 
-The entry is a directory, not a file: OpenCode v2 resolves the directory's
-`tui` entrypoint (`tui.tsx`). Restart OpenCode and open a repository checkout
-on a branch that has a pull request. The Plugins dialog shows `pr-sidebar`
-once it loads.
+A local path is a config entry, not an `opencode plugin add` target. Use this
+route for development or when the packaged install cannot load the raw TSX
+entry (see `docs/plugin-distribution.md`).
 
 ## Card
 
