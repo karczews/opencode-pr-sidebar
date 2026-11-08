@@ -4,7 +4,7 @@
 
 See proposal.md Why for motivation. This is a greenfield plugin in an otherwise empty repo (`openspec/` only, no source yet). The specs in `specs/pr-sidebar/spec.md` define the behavior contract; this doc defines the approach.
 
-Constraints: read-only display, GitHub only via the existing authenticated `gh` CLI, `git` on `PATH`, no extra credentials, no model calls, in-memory state only, must run inside the OpenCode v2 TUI plugin runtime (slots, theme, dialogs/toasts, keymap, command palette).
+Constraints: read-only display, GitHub only via the existing authenticated `gh` CLI, `git` on `PATH`, no extra credentials, no model calls, in-memory state only, must run inside the OpenCode v2 TUI plugin runtime via the V2 `setup(context)` API (slots, resolved theme, toasts, keymap layers and palette).
 
 ## Goals / Non-Goals
 
@@ -49,7 +49,12 @@ Rationale: a failed `open` must never look like success; the URL on screen is th
 Alternatives considered: launcher-only with silent failure (rejected); embedding full URLs always (wastes card width, rejected — full URL lives in fallback/toast).
 
 ### 7. Presentation: stable slot root, collapsible card
-Render a stable root box in `sidebar_content` so async lookup never unmounts the slot; collapsible header; Refresh dimmed while loading; palette commands for Open/Copy/Details-equivalent/Refresh so keyboard users never need the mouse.
+Claim `sidebar.content` with `context.ui.slot({ append, render })` and render a stable root box so async lookup never unmounts the card; collapsible header; Refresh dimmed while loading; palette commands (`palette: true` on keymap commands) for Open/Copy/Refresh so keyboard users never need the mouse.
+
+### 8. Target the V2 TUI entry (`setup`, not `tui`)
+Author against `@opencode/plugin/tui` and `Plugin.define({ id, setup })`. The v2.2.6 host accepts V1-shaped modules but never invokes their `tui` callback; the spike in `spikes/api-surface.md` records the live evidence. `context.ui.slot`, `context.keymap.layer`, `context.data.on`, `context.ui.toast.show`, and resolved theme tokens replace the V1 slot, keymap, event, and theme APIs.
+Rationale: only the V2 entry actually runs on the target host.
+Alternatives considered: shipping the V1 `tui` API (silently inert, rejected).
 Rationale: empty-first render is a known slot-mount pitfall; palette parity keeps the card accessible.
 Alternatives considered: hiding the slot until data arrives (risks the slot never mounting, rejected).
 
