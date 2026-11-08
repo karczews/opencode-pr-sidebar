@@ -13,7 +13,7 @@ import { setTimeout as sleep } from "node:timers/promises";
 import { test } from "node:test";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
-const root = dirname(fileURLToPath(import.meta.url));
+const root = dirname(dirname(fileURLToPath(import.meta.url)));
 
 const PR_VIEW = {
 	url: "https://github.com/owner/repo/pull/42",
@@ -130,7 +130,7 @@ function ghCalls(dir) {
 async function compilePlugin(outDir) {
 	mkdirSync(outDir, { recursive: true });
 	const { transformSolidSource } = await import(
-		"./node_modules/@opentui/solid/scripts/solid-transform.js"
+		"../node_modules/@opentui/solid/scripts/solid-transform.js"
 	);
 	const { readFileSync } = await import("node:fs");
 	const transformed = await transformSolidSource(

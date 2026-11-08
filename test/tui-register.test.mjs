@@ -4,14 +4,14 @@ import { dirname, join } from "node:path";
 import { test } from "node:test";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
-const root = dirname(fileURLToPath(import.meta.url));
+const root = dirname(dirname(fileURLToPath(import.meta.url)));
 
 test("setup() claims the sidebar slot, palette commands, and lifecycle events", async () => {
 	const outDir = join(root, ".tmp-tui");
 	mkdirSync(outDir, { recursive: true });
 	try {
 		const { transformSolidSource } = await import(
-			"./node_modules/@opentui/solid/scripts/solid-transform.js"
+			"../node_modules/@opentui/solid/scripts/solid-transform.js"
 		);
 		const transformed = await transformSolidSource(
 			readFileSync(join(root, "tui.tsx"), "utf8"),

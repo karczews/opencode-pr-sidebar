@@ -22,7 +22,7 @@ import {
 	summarizeReview,
 	type Execute,
 	type Snapshot,
-} from "./model.ts";
+} from "../model.ts";
 
 test("run resolves with stdout", async () => {
 	const out = await run(
