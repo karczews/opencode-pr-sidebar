@@ -1,0 +1,28 @@
+{
+	"name": "pr-sidebar",
+	"version": "0.0.0",
+	"private": true,
+	"type": "module",
+	"description": "Current-branch GitHub PR card for the OpenCode TUI sidebar",
+	"scripts": {
+		"fmt": "biome format --write .",
+		"fmt-check": "biome format .",
+		"lint": "biome lint .",
+		"typecheck": "tsc --noEmit",
+		"test": "node --test model.test.ts",
+		"test:render": "node --conditions=browser --test test-render.test.mjs",
+		"check": "npm run fmt-check && npm run lint && npm run typecheck && npm test && npm run test:register && npm run test:render",
+		"test:register": "node --conditions=browser --test tui-register.test.mjs"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "2.6.6",
+		"@opencode/client": "2.2.6",
+		"@opencode/plugin": "2.2.6",
+		"@opencode/theme": "2.2.6",
+		"@opentui/core": "0.8.3",
+		"@opentui/solid": "0.8.3",
+		"@types/node": "26.6.6",
+		"solid-js": "1.9.9",
+		"typescript": "5.9.3"
+	}
+}
