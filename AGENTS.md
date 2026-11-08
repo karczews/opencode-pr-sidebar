@@ -1,6 +1,8 @@
 # AGENTS.md
 
-OpenCode TUI sidebar plugin for GitHub PRs (current-branch card). Early stage: `LICENSE` plus OpenSpec planning artifacts under `openspec/`; no plugin source yet. Implementation plans live in `openspec/changes/<name>/` — read `proposal.md`, `specs/`, `design.md`, `tasks.md` there before coding.
+OpenCode TUI sidebar plugin for GitHub PRs (current-branch card). Target host: OpenCode v2, using the V2 TUI API (`@opencode/plugin/tui`, `Plugin.define({ id, setup })`); V1 `tui(api)` modules load but never run, so keep the V2 entry. `tui.tsx` holds the card and setup wiring; `model.ts` holds git/gh detection, parsing, summaries, the polling monitor, and browser/clipboard actions.
+
+Verify with `npm run check` (format, lint, typecheck, model tests, registration test, headless render tests). Implementation plans live in `openspec/changes/<name>/` — read `proposal.md`, `specs/`, `design.md`, `tasks.md` there before coding.
 
 ## Commits
 
