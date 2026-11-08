@@ -27,6 +27,12 @@ OpenCode installs the package into its own cache and adds the spec to
 repository checkout on a branch that has a pull request. The Plugins dialog
 shows `pr-sidebar` once it loads.
 
+The package ships a precompiled TUI entry (`dist/tui.js`) that imports the
+host's OpenTUI/Solid runtime through its virtual modules. That keeps packaged
+installs working without a second copy of the reactive runtime; `npm run
+compile` regenerates it from `tui.tsx`, and the output is committed because
+OpenCode never runs install or build scripts for Git packages.
+
 ### From a local checkout
 
 Point `~/.config/opencode/cli.json` at the directory, alongside any existing
@@ -150,6 +156,8 @@ Solid/OpenTUI runtime with temporary Git repositories and a stubbed `gh`.
 | `npm test` | Model unit tests. |
 | `npm run test:register` | Asserts the V2 setup registers the slot, palette commands, and events. |
 | `npm run test:render` | Headless card render and state matrix. |
+| `npm run compile` | Regenerate the committed `dist/` entry from `tui.tsx`. |
+| `npm run verify:dist` | Compile and fail if `dist/` is out of date. |
 
 The render test uses `--conditions=browser` because Node otherwise resolves
 `solid-js` to its server build, where `onMount` never runs; the TUI uses the

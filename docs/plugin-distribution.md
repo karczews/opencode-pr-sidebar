@@ -755,11 +755,20 @@ npm cache tree.
 
 ## 5. Concrete recommendation for this repo
 
-> **Status (2026-11-08): applied.** `package.json` is now
-> `opencode-pr-sidebar@0.1.0` with `exports["./tui"]`, `files`, runtime
-> `dependencies`, optional peers, and advisory `engines.opencode`; the packlist
-> contains `tui.tsx`, `model.ts`, `README.md`, `LICENSE`. The remaining work is
-> verifying the packaged install against the raw-TSX risk in §3.5.
+> **Status (2026-11-08): applied and verified.** `package.json` is now
+> `opencode-pr-sidebar@0.1.0` with `exports["./tui"]` pointing at a committed
+> precompiled `dist/tui.js`, `files`, optional peers, and advisory
+> `engines.opencode`. A `git+file://` install was tested end-to-end in an
+> isolated `XDG_*` config: the card rendered, the palette command ran, and a
+> failed manual refresh repainted to `STALE` / `PR refresh failed`.
+>
+> Test evidence for the §3.5 risk: the raw `tui.tsx` entry failed with
+> `Cannot find package '@opentui/solid' imported from …/tui.tsx` (the host's
+> `nodeModulesBareSpecifiers` is `false`, so bare imports from `node_modules`
+> are not rewritten). The fix: `scripts/compile.mjs` transforms `tui.tsx` and
+> rewrites `@opentui/solid`, `solid-js`, and `@opencode/plugin/tui` to
+> `opentui:runtime-module:*` ids; `dist/tui.js` + `dist/model.js` are committed
+> because install scripts never run. `npm run verify:dist` guards drift.
 
 Original state before the change (from `package.json`, `tui.tsx`, `model.ts`,
 `.gitignore`):
@@ -869,9 +878,11 @@ not the workspace copy ([build/plugins – Publish](https://opencode.ai/v2/docs/
 | Build scripts | must avoid `build`/`prepare`/… (§3.3) | same |
 | Raw `.tsx` under `node_modules` | **at risk** (§3.5) | **at risk** (same cache layout) |
 
-**Recommendation:** the §5.1 manifest work is done; test the GitHub spec next
-(it needs no account and the repo is already public), but **do not assume the
-current raw `tui.tsx` renders once installed** — issue
+**Recommendation:** the §5.1 manifest work is done and the packaged install is
+verified against the §3.5 risk via the committed `dist/` entry. Publish/push,
+then install with `opencode plugin add github:karczews/opencode-pr-sidebar`
+(pin a tag for releases). **Do not point `exports["./tui"]` back at the raw
+`tui.tsx`**: that is the shape that failed under `node_modules` — issue
 [#39986](https://github.com/anomalyco/opencode/issues/39986) is open and was
 reproduced on 2.2.0 with workaround reports on 2.2.5, one day before this
 machine's 2.2.6. Validate in a live TUI with `opencode plugin add
