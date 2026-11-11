@@ -8,8 +8,8 @@ import { setProp as _$setProp } from "opentui:runtime-module:%40opentui%2Fsolid"
 import { createElement as _$createElement } from "opentui:runtime-module:%40opentui%2Fsolid";
 /** @jsxImportSource @opentui/solid */
 import { Plugin } from "opentui:runtime-module:%40opencode%2Fplugin%2Ftui";
-import { createSignal, onCleanup, onMount } from "opentui:runtime-module:solid-js";
-import { ageOf, clean, copyToClipboard, createMonitor, lifecycleOf, mergeLineOf, openBrowser, summarizeChecks, summarizeReview } from "./model.js";
+import { createMemo, createSignal, onCleanup, onMount } from "opentui:runtime-module:solid-js";
+import { ageOf, clean, copyToClipboard, createMonitor, openBrowser, summarize } from "./model.js";
 const POLL_MS = 5000;
 export default Plugin.define({
   id: "pr-sidebar",
@@ -34,6 +34,7 @@ export default Plugin.define({
         return "";
       }
     };
+    // Hide PR data fetched for a previous directory while the monitor catches up.
     const pr = () => state().directory === directory() ? state().pr : null;
     const theme = () => context.theme;
     const toast = (message, variant = "info") => context.ui.toast.show({
@@ -106,6 +107,9 @@ export default Plugin.define({
       })();
     }
     function PrCard(props) {
+      // One memoized summary per card: the previous code derived the merge,
+      // review, and checks lines with separate calls.
+      const summary = createMemo(() => summarize(props.p));
       return [(() => {
         var _el$3 = _$createElement("box"),
           _el$4 = _$createElement("text"),
@@ -159,17 +163,17 @@ export default Plugin.define({
         _$insertNode(_el$1, _el$11);
         _$insertNode(_el$1, _el$13);
         _$insertNode(_el$1, _el$15);
-        _$insert(_el$10, () => lifecycleOf(props.p));
+        _$insert(_el$10, () => summary().lifecycle);
         _$insertNode(_el$11, _el$12);
-        _$insert(_el$11, () => summarizeReview(props.p.reviewDecision), null);
+        _$insert(_el$11, () => summary().review, null);
         _$insertNode(_el$13, _el$14);
-        _$insert(_el$14, () => mergeLineOf(props.p));
-        _$insert(_el$15, () => checksLine(props.p));
+        _$insert(_el$14, () => summary().merge);
+        _$insert(_el$15, () => checksLine(summary().checks));
         _$effect(_p$ => {
           var _v$6 = props.p.state === "MERGED" ? theme().text.feedback.success.base : props.p.state === "CLOSED" ? theme().text.feedback.error.base : theme().text.base,
             _v$7 = theme().text.muted,
-            _v$8 = mergeFg(mergeLineOf(props.p)),
-            _v$9 = summarizeChecks(props.p.statusCheckRollup).failed > 0 ? theme().text.feedback.warning.base : theme().text.muted;
+            _v$8 = mergeFg(summary().merge),
+            _v$9 = summary().checks.failed > 0 ? theme().text.feedback.warning.base : theme().text.muted;
           _v$6 !== _p$.e && (_p$.e = _$setProp(_el$10, "fg", _v$6, _p$.e));
           _v$7 !== _p$.t && (_p$.t = _$setProp(_el$11, "fg", _v$7, _p$.t));
           _v$8 !== _p$.a && (_p$.a = _$setProp(_el$13, "fg", _v$8, _p$.a));
@@ -242,14 +246,14 @@ export default Plugin.define({
           publish: setState
         });
         monitor.tick();
+        const timer = setInterval(() => {
+          monitor?.tick();
+        }, POLL_MS);
+        // Never hold the process open on this timer alone; the host owns lifetime.
+        timer.unref?.();
+        onCleanup(() => clearInterval(timer));
       });
-      const timer = setInterval(() => {
-        monitor?.tick();
-      }, POLL_MS);
-      // Never hold the process open on this timer alone; the host owns lifetime.
-      timer.unref?.();
       onCleanup(() => {
-        clearInterval(timer);
         monitor?.stop();
         monitor = undefined;
       });
@@ -279,11 +283,12 @@ export default Plugin.define({
         _$insertNode(_el$34, _$createTextNode(`Pull Request`));
         _$insert(_el$30, (() => {
           var _c$2 = _$memo(() => !!expanded());
-          return () => _c$2() ? [_$memo(() => _$memo(() => !!pr())() ? _$createComponent(PrCard, {
-            get p() {
-              return pr();
-            }
-          }) : null), _$memo(() => _$memo(() => !!state().error)() ? (() => {
+          return () => _c$2() ? [_$memo(() => {
+            const p = pr();
+            return p ? _$createComponent(PrCard, {
+              p: p
+            }) : null;
+          }), _$memo(() => _$memo(() => !!state().error)() ? (() => {
             var _el$37 = _$createElement("text");
             _$insert(_el$37, () => pr() ? "STALE: " : "", null);
             _$insert(_el$37, () => state().error, null);
@@ -373,8 +378,7 @@ export default Plugin.define({
     };
   }
 });
-function checksLine(pr) {
-  const counts = summarizeChecks(pr.statusCheckRollup);
+function checksLine(counts) {
   if (counts.passed + counts.failed + counts.pending + counts.skipped === 0) {
     return "No checks reported";
   }
