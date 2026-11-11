@@ -1,4 +1,6 @@
 import { execFileSync } from "node:child_process";
+import { realpathSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 
 // Enforces AGENTS.md commit conventions without extra dependencies:
 // type(scope): subject, lowercase imperative subject, no trailing period,
@@ -58,38 +60,54 @@ function resolveRange(args) {
 	return "origin/main..HEAD";
 }
 
-const range = resolveRange(process.argv.slice(2));
-const explicit = process.argv.length > 2;
-let lines = commitsIn(range);
-if (lines === null && !explicit) {
-	// Unknown revision (e.g. no origin/main locally): fall back to HEAD.
-	lines = commitsIn("HEAD");
-}
-if (lines === null) {
-	console.error(
-		explicit
-			? `lint-commits: cannot read range ${range}; fetch the base ref first`
-			: "lint-commits: no git history found",
+if (isEntryPoint()) {
+	const range = resolveRange(process.argv.slice(2));
+	const explicit = process.argv.length > 2;
+	let effectiveRange = range;
+	let lines = commitsIn(range);
+	if (lines === null && !explicit) {
+		// Unknown revision (e.g. no origin/main locally): fall back to the tip commit.
+		effectiveRange = "HEAD^!";
+		lines = commitsIn(effectiveRange);
+	}
+	if (lines === null) {
+		console.error(
+			explicit
+				? `lint-commits: cannot read range ${range}; fetch the base ref first`
+				: "lint-commits: no git history found",
+		);
+		process.exit(1);
+	}
+	if (lines.length === 0) {
+		console.log("lint-commits: no commits in range, ok");
+		process.exit(0);
+	}
+
+	let failed = false;
+	for (const line of lines) {
+		const [hash = "", parents = "", ...rest] = line.split("\x00");
+		const header = rest.join("\x00");
+		const error = checkMessage(header, parents.trim().includes(" "));
+		if (error) {
+			console.error(`${hash.slice(0, 8)} ${header}\n  ${error}`);
+			failed = true;
+		}
+	}
+
+	if (failed) {
+		process.exit(1);
+	}
+	console.log(
+		`lint-commits ok (${lines.length} commit(s) in ${effectiveRange})`,
 	);
-	process.exit(1);
-}
-if (lines.length === 0) {
-	console.log("lint-commits: no commits in range, ok");
-	process.exit(0);
 }
 
-let failed = false;
-for (const line of lines) {
-	const [hash = "", parents = "", ...rest] = line.split("\x00");
-	const header = rest.join("\x00");
-	const error = checkMessage(header, parents.trim().includes(" "));
-	if (error) {
-		console.error(`${hash.slice(0, 8)} ${header}\n  ${error}`);
-		failed = true;
+function isEntryPoint() {
+	try {
+		return (
+			realpathSync(process.argv[1] ?? "") === fileURLToPath(import.meta.url)
+		);
+	} catch {
+		return false;
 	}
 }
-
-if (failed) {
-	process.exit(1);
-}
-console.log(`lint-commits ok (${lines.length} commit(s) in ${range})`);

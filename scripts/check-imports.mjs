@@ -1,12 +1,22 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { dirname, join, normalize } from "node:path";
+import {
+	ScriptKind,
+	ScriptTarget,
+	SyntaxKind,
+	createSourceFile,
+	isExportDeclaration,
+	isImportDeclaration,
+} from "typescript";
 
 // Runtime allowlist for the packaged plugin. GitHub/npm installs never run
-// install scripts, so anything imported here must either be a Node builtin, a
-// declared host peer resolved by the host at runtime (source only:
-// compile.mjs rewrites these to opentui:runtime-module:* in dist), a relative
-// file shipped via package.json `files` (dist) or present in the repo (src),
-// or a host virtual module (dist only). See docs/plugin-distribution.md.
+// install scripts, so anything imported at runtime here must either be a Node
+// builtin, a declared host peer resolved by the host at runtime (source
+// only: compile.mjs rewrites these to opentui:runtime-module:* in dist), a
+// relative file shipped via package.json `files` (dist) or present in the
+// repo (src), or a host virtual module (dist only). Type-only imports and
+// re-exports are erased at compile time and need no runtime package, so they
+// are skipped. See docs/plugin-distribution.md.
 const SRC_ENTRIES = ["tui.tsx", "model.ts"];
 const SRC_ALLOW = [
 	/^\.\.?\//,
@@ -17,11 +27,58 @@ const SRC_ALLOW = [
 ];
 const DIST_ALLOW = [/^\.\.?\//, /^node:/, /^opentui:runtime-module:/];
 
-const SPECIFIER =
-	/(?:\bfrom\s*|\bimport\s*\(\s*|\bimport\s*|\brequire\s*\(\s*)["'`]([^"'`]+)["'`]/g;
-
 const pkg = JSON.parse(readFileSync("package.json", "utf8"));
 const shipped = new Set(pkg.files ?? []);
+
+function scriptKindFor(file) {
+	if (file.endsWith(".tsx")) {
+		return ScriptKind.TSX;
+	}
+	if (file.endsWith(".ts")) {
+		return ScriptKind.TS;
+	}
+	return ScriptKind.JS;
+}
+
+// Value-level module specifiers only: skips `import type`, `export type`,
+// comments, and string contents by parsing instead of regex matching.
+function runtimeSpecifiers(file, source) {
+	const ast = createSourceFile(
+		file,
+		source,
+		ScriptTarget.Latest,
+		true,
+		scriptKindFor(file),
+	);
+	const specifiers = [];
+	const visit = (node) => {
+		if (isImportDeclaration(node)) {
+			if (!node.importClause?.isTypeOnly && node.moduleSpecifier) {
+				specifiers.push(node.moduleSpecifier.getText(ast).slice(1, -1));
+			}
+		} else if (
+			isExportDeclaration(node) &&
+			!node.isTypeOnly &&
+			node.moduleSpecifier
+		) {
+			specifiers.push(node.moduleSpecifier.getText(ast).slice(1, -1));
+		} else if (
+			node.kind === SyntaxKind.CallExpression &&
+			node.expression.kind === SyntaxKind.ImportKeyword &&
+			node.arguments.length === 1
+		) {
+			const argument = node.arguments[0];
+			if (argument.kind === SyntaxKind.StringLiteral) {
+				specifiers.push(argument.text);
+			} else {
+				specifiers.push(null);
+			}
+		}
+		node.forEachChild(visit);
+	};
+	visit(ast);
+	return specifiers;
+}
 
 function resolveRelative(fromFile, specifier) {
 	const base = join(dirname(fromFile), specifier);
@@ -56,9 +113,8 @@ function collectTargets() {
 		} catch {
 			continue;
 		}
-		for (const match of source.matchAll(SPECIFIER)) {
-			const specifier = match[1];
-			if (!specifier.startsWith(".")) {
+		for (const specifier of runtimeSpecifiers(file, source)) {
+			if (typeof specifier !== "string" || !specifier.startsWith(".")) {
 				continue;
 			}
 			const resolved = resolveRelative(file, specifier);
@@ -89,8 +145,12 @@ for (const { file, dist } of targets) {
 		continue;
 	}
 	const allowed = dist ? DIST_ALLOW : SRC_ALLOW;
-	for (const match of source.matchAll(SPECIFIER)) {
-		const specifier = match[1];
+	for (const specifier of runtimeSpecifiers(file, source)) {
+		if (specifier === null) {
+			console.error(`${file}: dynamic import with non-literal specifier`);
+			failed = true;
+			continue;
+		}
 		if (!allowed.some((pattern) => pattern.test(specifier))) {
 			console.error(`${file}: disallowed import ${JSON.stringify(specifier)}`);
 			failed = true;
