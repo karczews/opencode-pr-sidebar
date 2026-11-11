@@ -1,6 +1,6 @@
 ---
-description: "Implement tasks from an OpenSpec change (Experimental)"
----
+
+## description: "Implement tasks from an OpenSpec change (Experimental)"
 
 Implement tasks from an OpenSpec change.
 

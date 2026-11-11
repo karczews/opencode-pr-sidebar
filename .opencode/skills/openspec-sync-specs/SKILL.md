@@ -2,12 +2,13 @@
 
 name: openspec-sync-specs
 description: Sync delta specs from an OpenSpec change to main specs. Use when the user wants to update main specs with changes from a delta spec, without archiving the change. Also use when the user says "openspec sync" or "opsx sync".
+allowed-tools: Bash(openspec:*)
 license: MIT
 compatibility: Requires openspec CLI.
 metadata:
-  author: openspec
-  version: "1.0"
-  generatedBy: "1.16.0"
+author: openspec
+version: "1.0"
+generatedBy: "1.16.0"
 ---
 
 Sync delta specs from a change to main specs.
@@ -107,8 +108,6 @@ In both branches, never create the root as a side effect: do not run `openspec i
    a. **Read the delta spec** to understand the intended changes
 
    b. **Read the main spec** at `<planningHome.root>/openspec/specs/<capability-path>/spec.md` (may not exist yet)
-
-   Before writing a main spec, verify its resolved path stays inside the real specs root after resolving symlinks; if it escapes, stop and report instead of writing.
 
    **If it does not exist yet** (a new capability), match what `openspec archive` does:
    only ADDED requirements may be applied - step d creates the spec from them.

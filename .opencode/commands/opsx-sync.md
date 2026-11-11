@@ -1,6 +1,6 @@
 ---
-description: "Sync delta specs from a change to main specs"
----
+
+## description: "Sync delta specs from a change to main specs"
 
 Sync delta specs from a change to main specs.
 
@@ -100,8 +100,6 @@ In both branches, never create the root as a side effect: do not run `openspec i
    a. **Read the delta spec** to understand the intended changes
 
    b. **Read the main spec** at `<planningHome.root>/openspec/specs/<capability-path>/spec.md` (may not exist yet)
-
-   Before writing a main spec, verify its resolved path stays inside the real specs root after resolving symlinks; if it escapes, stop and report instead of writing.
 
    **If it does not exist yet** (a new capability), match what `openspec archive` does:
    only ADDED requirements may be applied - step d creates the spec from them.
