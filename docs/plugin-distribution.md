@@ -577,9 +577,10 @@ NpmInstallFailedError:
 > Git install on 2.0.28."
 
 **This repo is safe today**: its `scripts` are `fmt`, `fmt-check`, `lint`,
-`typecheck`, `test`, `test:render`, `check`, `test:register` — no trigger names,
-and no `workspaces`. Do not add a `build`/`prepare` script to `package.json`
-without also committing built output.
+`check:imports`, `lint:commits`, `check:audit`, `typecheck`, `test`,
+`test:render`, `check`, `test:register`, `compile`, `verify:dist` — no trigger
+names, and no `workspaces`. Do not add a `build`/`prepare` script to
+`package.json` without also committing built output.
 
 ### 3.4 Version suffixes, pinning and refresh behaviour
 

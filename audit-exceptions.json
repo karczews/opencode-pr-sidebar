@@ -1,0 +1,4 @@
+{
+	"GHSA-3g3m-2fjr-6pw4": "glob 9-14 AbortSignal bypass via @opencode/* npm toolchain (dev-only transitive, no fix available upstream); unreachable from shipped dist, which imports only node: builtins and host virtual modules",
+	"GHSA-g3hv-75wg-m249": "minimatch globparts DoS via @opencode/* npm toolchain (dev-only transitive, no fix available upstream); same unreachable-from-dist reasoning as GHSA-3g3m-2fjr-6pw4"
+}
