@@ -125,6 +125,50 @@ jobs:
             fi
           fi
 
+  version-ownership:
+    name: version ownership
+    runs-on: ubuntu-latest
+    # Release-please owns version files; feature PRs must not touch them.
+    # Only runs on PRs: pushes to main are release-please merges (or
+    # direct pushes, which branch rules handle).
+    if: github.event_name == 'pull_request'
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Ensure release-please owns versions
+        run: |
+          if [[ "${{ github.head_ref }}" == release-please--* ]]; then
+            echo "release-please branch: version edits allowed"
+            exit 0
+          fi
+          base="${{ github.event.pull_request.base.sha }}"
+          head="${{ github.sha }}"
+          version_at() {
+            git show "$1:$2" 2>/dev/null | node -p "JSON.parse(require('fs').readFileSync(0,'utf8')).version"
+          }
+          for file in package.json package-lock.json; do
+            before="$(version_at "$base" "$file")"
+            after="$(version_at "$head" "$file")"
+            if [ "$before" != "$after" ]; then
+              echo "version ownership: $file version changed (${before} -> ${after}); versions are owned by release-please, do not bump manually"
+              exit 1
+            fi
+          done
+          owned=(CHANGELOG.md .release-please-manifest.json)
+          changed="$(git diff --name-only "$base" "$head" -- "${owned[@]}" || true)"
+          if [ -n "$changed" ]; then
+            echo "version ownership: these files are owned by release-please, do not edit manually:"
+            echo "$changed"
+            exit 1
+          fi
+          echo "version ownership ok"
+
   workflow-lint:
     name: workflow lint
     runs-on: ubuntu-latest
