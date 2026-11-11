@@ -154,7 +154,11 @@ jobs:
             exit 0
           fi
           version_at() {
-            git show "$1:$2" 2>/dev/null | node -p "JSON.parse(require('fs').readFileSync(0,'utf8')).version" 2>/dev/null
+            # Canonical root-version identity: package.json carries .version;
+            # package-lock.json mirrors it in .version and packages."".version.
+            # Dependency entries elsewhere in the lockfile are ignored, so
+            # dependabot updates still pass.
+            git show "$1:$2" 2>/dev/null | node -p "const j=JSON.parse(require('fs').readFileSync(0,'utf8'));JSON.stringify([j.version,j.packages?.['']?.version])" 2>/dev/null
           }
           for file in package.json package-lock.json; do
             before="$(version_at "$BASE_SHA" "$file")"
