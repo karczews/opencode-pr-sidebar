@@ -15,6 +15,7 @@
 	"files": [
 		"dist/tui.js",
 		"dist/model.js",
+		"docs/assets/card.gif",
 		"README.md",
 		"LICENSE"
 	],
