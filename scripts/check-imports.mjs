@@ -1,4 +1,4 @@
-import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { dirname, join, normalize } from "node:path";
 import {
 	ScriptKind,
@@ -80,6 +80,14 @@ function runtimeSpecifiers(file, source) {
 	return specifiers;
 }
 
+function isFile(path) {
+	try {
+		return statSync(path).isFile();
+	} catch {
+		return false;
+	}
+}
+
 function resolveRelative(fromFile, specifier) {
 	const base = join(dirname(fromFile), specifier);
 	for (const candidate of [
@@ -89,7 +97,7 @@ function resolveRelative(fromFile, specifier) {
 		`${base}.js`,
 		join(base, "index.ts"),
 	]) {
-		if (existsSync(candidate)) {
+		if (isFile(candidate)) {
 			return normalize(candidate);
 		}
 	}
@@ -123,12 +131,21 @@ function collectTargets() {
 			}
 		}
 	}
+	// dist targets come from package.json `files`, not just the directory
+	// listing, so a missing or renamed build output fails instead of
+	// passing silently. Extra .js files on disk are scanned too.
+	const distFiles = new Set(
+		[...shipped].filter((f) => f.startsWith("dist/") && f.endsWith(".js")),
+	);
 	if (existsSync("dist")) {
 		for (const entry of readdirSync("dist")) {
 			if (entry.endsWith(".js")) {
-				targets.push({ file: join("dist", entry), dist: true });
+				distFiles.add(join("dist", entry));
 			}
 		}
+	}
+	for (const file of distFiles) {
+		targets.push({ file, dist: true });
 	}
 	return targets;
 }
