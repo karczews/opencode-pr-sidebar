@@ -45,20 +45,6 @@ A local path is a config entry, not an `opencode plugin add` target. See
 [`docs/plugin-distribution.md`](docs/plugin-distribution.md) for packaging
 notes.
 
-## Releases
-
-Versions are managed by [release-please](https://github.com/googleapis/release-please):
-`feat` → minor, `fix`/`perf` → patch, `!` (`feat!:`) → breaking (minor while `0.x`,
-major after); `docs`/`chore`/`test`/`refactor` alone trigger no release.
-Conventional commits on `main` accumulate into a release PR that bumps
-`package.json`/`package-lock.json`, updates `CHANGELOG.md`, and tags
-`vX.Y.Z`. Do not bump versions manually — CI rejects version edits in
-feature PRs. Install a release with:
-
-```sh
-opencode plugin add 'github:karczews/opencode-pr-sidebar#v0.1.1'
-```
-
 ## Walkthrough
 
 1. Open a repository checkout whose current branch has a pull request.
