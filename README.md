@@ -1,6 +1,6 @@
 # pr-sidebar
 
-[![check](https://github.com/karczews/opencode-pr-sidebar/actions/workflows/check.yml/badge.svg)](https://github.com/karczews/opencode-pr-sidebar/actions/workflows/check.yml)
+[![check](https://github.com/karczews/opencode-pr-sidebar/actions/workflows/check.yml/badge.svg?branch=main)](https://github.com/karczews/opencode-pr-sidebar/actions/workflows/check.yml?query=branch%3Amain)
 
 Current-branch GitHub pull request card for the OpenCode TUI sidebar.
 
@@ -44,6 +44,20 @@ Add the directory to `~/.config/opencode/cli.json`:
 A local path is a config entry, not an `opencode plugin add` target. See
 [`docs/plugin-distribution.md`](docs/plugin-distribution.md) for packaging
 notes.
+
+## Releases
+
+Versions are managed by [release-please](https://github.com/googleapis/release-please):
+`feat` → minor, `fix` → patch, `!` (`feat!:`) → breaking (minor while `0.x`,
+major after); `docs`/`chore`/`test`/`refactor` alone trigger no release.
+Conventional commits on `main` accumulate into a release PR that bumps
+`package.json`/`package-lock.json`, updates `CHANGELOG.md`, and tags
+`vX.Y.Z`. Do not bump versions manually — CI rejects version edits in
+feature PRs. Install a release with:
+
+```sh
+opencode plugin add 'github:karczews/opencode-pr-sidebar#vX.Y.Z'
+```
 
 ## Walkthrough
 
