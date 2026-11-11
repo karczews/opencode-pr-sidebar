@@ -19,7 +19,7 @@ export function checkMessage(header, merge = false) {
 	}
 	const match = HEADER.exec(header);
 	if (!match) {
-		return `must match "type[(scope)]: subject" with type one of ${TYPES.join("|")} (got ${JSON.stringify(header)})`;
+		return `must match "type[(scope)][!]: subject" with type one of ${TYPES.join("|")} (got ${JSON.stringify(header)})`;
 	}
 	const subject = match[3];
 	if (subject.length > 72) {

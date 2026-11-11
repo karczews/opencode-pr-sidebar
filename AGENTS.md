@@ -13,13 +13,6 @@ Use Conventional Commits for every commit: `type(scope): subject`.
 - `subject`: imperative mood, lowercase, no trailing period, max 72 chars.
 - Append `!` before the colon for semver breaking changes (`feat!:`).
   `release-please` bumps minor pre-1.0, major after.
-
-## Versions
-
-Versions are owned by release-please (node strategy): never bump
-`package.json`/`package-lock.json`, `CHANGELOG.md`, or
-`.release-please-manifest.json` manually — CI rejects such edits in feature
-PRs. `docs`/`chore`/`test`/`refactor` commits trigger no release.
 - Add a body only when the subject cannot explain why; planning rationale belongs in the OpenSpec artifacts, not the commit body.
 
 Examples:
@@ -28,3 +21,11 @@ Examples:
 - `docs(openspec): add current-branch-pr-sidebar change`
 - `docs: add AGENTS.md commit conventions`
 - `feat(pr-sidebar): render current-branch PR card`
+
+## Versions
+
+Versions are owned by release-please (node strategy): never bump
+`package.json`/`package-lock.json`, `CHANGELOG.md`, or
+`.release-please-manifest.json` manually — CI rejects such edits in feature
+PRs. `release-please-config.json` stays human-editable. `docs`/`chore`/`test`/
+`refactor` commits trigger no release.

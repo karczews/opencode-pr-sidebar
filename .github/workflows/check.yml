@@ -142,26 +142,35 @@ jobs:
           persist-credentials: false
 
       - name: Ensure release-please owns versions
+        env:
+          HEAD_REF: ${{ github.head_ref }}
+          HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.sha }}
+          THIS_REPO: ${{ github.repository }}
         run: |
-          if [[ "${{ github.head_ref }}" == release-please--* ]]; then
+          if [[ "$HEAD_REF" == release-please--* && "$HEAD_REPO" == "$THIS_REPO" ]]; then
             echo "release-please branch: version edits allowed"
             exit 0
           fi
-          base="${{ github.event.pull_request.base.sha }}"
-          head="${{ github.sha }}"
           version_at() {
-            git show "$1:$2" 2>/dev/null | node -p "JSON.parse(require('fs').readFileSync(0,'utf8')).version"
+            git show "$1:$2" 2>/dev/null | node -p "JSON.parse(require('fs').readFileSync(0,'utf8')).version" 2>/dev/null
           }
           for file in package.json package-lock.json; do
-            before="$(version_at "$base" "$file")"
-            after="$(version_at "$head" "$file")"
+            before="$(version_at "$BASE_SHA" "$file")"
+            after="$(version_at "$HEAD_SHA" "$file")"
             if [ "$before" != "$after" ]; then
               echo "version ownership: $file version changed (${before} -> ${after}); versions are owned by release-please, do not bump manually"
               exit 1
             fi
           done
-          owned=(CHANGELOG.md .release-please-manifest.json)
-          changed="$(git diff --name-only "$base" "$head" -- "${owned[@]}" || true)"
+          # Bootstrap allowance: this rollout creates the manifest, so only
+          # enforce it once it exists at base.
+          owned=(CHANGELOG.md)
+          if git cat-file -e "$BASE_SHA:.release-please-manifest.json" 2>/dev/null; then
+            owned+=(.release-please-manifest.json)
+          fi
+          changed="$(git diff --name-only "$BASE_SHA" "$HEAD_SHA" -- "${owned[@]}" || true)"
           if [ -n "$changed" ]; then
             echo "version ownership: these files are owned by release-please, do not edit manually:"
             echo "$changed"
