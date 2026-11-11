@@ -201,7 +201,7 @@ jobs:
         uses: reviewdog/action-actionlint@78b296370c5c75abca79860e9baa9846e3286a29 # v1.84.0
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          fail_on_error: "true"
+          fail_level: error
 
       - name: Harden workflows
         uses: zizmorcore/zizmor-action@45d7276c9ca790aabd705e31ca99c6185c3e76dd # v0.8.1
