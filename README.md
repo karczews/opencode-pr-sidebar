@@ -1,5 +1,7 @@
 # pr-sidebar
 
+[![check](https://github.com/karczews/opencode-pr-sidebar/actions/workflows/check.yml/badge.svg)](https://github.com/karczews/opencode-pr-sidebar/actions/workflows/check.yml)
+
 Current-branch GitHub pull request card for the OpenCode TUI sidebar.
 
 It shows the pull request for the working directory's current branch: lifecycle,
@@ -7,6 +9,8 @@ review, checks, merge readiness, and activity at a glance. The card is read-only
 uses your authenticated GitHub CLI, and makes no model calls. The full behavior
 contract lives in
 [`openspec/specs/pr-sidebar/spec.md`](openspec/specs/pr-sidebar/spec.md).
+
+![Pull request card demo](docs/assets/card.gif)
 
 ## Requirements
 

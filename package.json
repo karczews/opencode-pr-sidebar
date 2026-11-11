@@ -15,6 +15,7 @@
 	"files": [
 		"dist/tui.js",
 		"dist/model.js",
+		"docs/assets/card.gif",
 		"README.md",
 		"LICENSE"
 	],
@@ -25,10 +26,13 @@
 		"fmt": "biome format --write .",
 		"fmt-check": "biome format .",
 		"lint": "biome lint .",
+		"check:imports": "node scripts/check-imports.mjs",
+		"lint:commits": "node scripts/check-commits.mjs",
+		"check:audit": "node scripts/check-audit.mjs",
 		"typecheck": "tsc --noEmit",
 		"test": "node --test test/model.test.ts",
 		"test:render": "node --conditions=browser --test test/test-render.test.mjs",
-		"check": "npm run fmt-check && npm run lint && npm run typecheck && npm run verify:dist && npm test && npm run test:register && npm run test:render",
+		"check": "npm run fmt-check && npm run lint && npm run check:imports && npm run typecheck && npm run verify:dist && npm test && npm run test:register && npm run test:render",
 		"test:register": "node --conditions=browser --test test/tui-register.test.mjs",
 		"compile": "node scripts/compile.mjs",
 		"verify:dist": "npm run compile && git diff --exit-code -- dist"

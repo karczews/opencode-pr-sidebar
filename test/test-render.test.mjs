@@ -559,6 +559,7 @@ test("sidebar card keeps stale data and offers refresh after failures", async ()
 test("open and copy report failures with the URL when launchers are unavailable", async () => {
 	const previousPath = process.env.PATH ?? "";
 	const previousGhMode = process.env.GH_MODE;
+	const previousDisplay = process.env.DISPLAY;
 	const { dir, repoDir, bin } = setupWorktree();
 	try {
 		await compilePlugin(join(root, ".tmp-render"));
@@ -577,6 +578,8 @@ test("open and copy report failures with the URL when launchers are unavailable"
 		}
 		process.env.PATH = `${bin}${previousPath ? `:${previousPath}` : ""}`;
 		process.env.GH_MODE = "ok";
+		// Present a display so openBrowser reaches the stubbed launcher even on headless Linux.
+		process.env.DISPLAY = ":99";
 		const { testRender } = await import("@opentui/solid");
 		const toasts = [];
 		const harness = await setupPlugin(repoDir, toasts);
@@ -608,6 +611,11 @@ test("open and copy report failures with the URL when launchers are unavailable"
 		}
 	} finally {
 		process.env.PATH = previousPath;
+		if (previousDisplay === undefined) {
+			delete process.env.DISPLAY;
+		} else {
+			process.env.DISPLAY = previousDisplay;
+		}
 		if (previousGhMode === undefined) {
 			delete process.env.GH_MODE;
 		} else {
