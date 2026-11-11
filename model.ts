@@ -176,10 +176,11 @@ function asRecord(value: unknown, label: string): Record<string, unknown> {
 }
 
 function asString(data: Record<string, unknown>, key: string): string {
-	if (typeof data[key] !== "string") {
+	const value = data[key];
+	if (typeof value !== "string") {
 		throw new Error(`Invalid PR response: ${key}`);
 	}
-	return data[key] as string;
+	return value;
 }
 
 function optionalString(value: unknown): string | undefined {
@@ -213,10 +214,10 @@ export function splitPRUrl(url: string): {
 }
 
 function asNonNegativeInt(value: unknown, label: string): number {
-	if (!Number.isInteger(value) || (value as number) < 0) {
+	if (typeof value !== "number" || !Number.isInteger(value) || value < 0) {
 		throw new Error(`Invalid PR response: ${label}`);
 	}
-	return value as number;
+	return value;
 }
 
 export function parsePRView(
@@ -241,10 +242,8 @@ export function parsePRView(
 	) {
 		throw new Error("Invalid PR response: state");
 	}
-	if (typeof data.url !== "string") {
-		throw new Error("Invalid PR response: url");
-	}
-	const parts = splitPRUrl(data.url);
+	const url = asString(data, "url");
+	const parts = splitPRUrl(url);
 	if (parts.number !== data.number) {
 		throw new Error("Invalid PR response: url number mismatch");
 	}
@@ -269,7 +268,7 @@ export function parsePRView(
 	}
 	return {
 		number: data.number as number,
-		url: asString(data, "url"),
+		url,
 		title: asString(data, "title"),
 		state: data.state,
 		isDraft: data.isDraft,
@@ -301,9 +300,10 @@ export function parseCounts(text: string): {
 		throw new Error("Invalid counts response: not JSON");
 	}
 	const root = asRecord(data, "Invalid counts response");
+	const payload = asRecord(root.data, "Invalid counts response: data");
 	const repository = asRecord(
-		asRecord(root.data, "Invalid counts response").repository,
-		"Invalid counts response",
+		payload.repository,
+		"Invalid counts response: repository",
 	);
 	const pr = asRecord(
 		repository.pullRequest,
@@ -402,10 +402,7 @@ function classifyCheckRun(check: CheckEntry): keyof CheckCounts {
 	if (check.conclusion === "SKIPPED" || check.conclusion === "NEUTRAL") {
 		return "skipped";
 	}
-	if (
-		typeof check.conclusion === "string" &&
-		FAILED_CONCLUSIONS.has(check.conclusion)
-	) {
+	if (check.conclusion != null && FAILED_CONCLUSIONS.has(check.conclusion)) {
 		return "failed";
 	}
 	// Unknown or missing conclusion: never invent a pass or a failure.
@@ -603,9 +600,9 @@ export function createMonitor({
 	const isStale = (
 		expected: number,
 		cwd: string,
-		abort: AbortSignal,
+		signal: AbortSignal,
 	): boolean =>
-		stopped || expected !== version || directory() !== cwd || abort.aborted;
+		stopped || expected !== version || directory() !== cwd || signal.aborted;
 
 	async function cycle(force: boolean, activity: boolean): Promise<void> {
 		if (stopped) {

@@ -1,6 +1,6 @@
 /** @jsxImportSource @opentui/solid */
 import { Plugin } from "@opencode/plugin/tui";
-import { createMemo, createSignal, onCleanup, onMount } from "solid-js";
+import { createMemo, createSignal, onCleanup, onMount, Show } from "solid-js";
 import {
 	ageOf,
 	clean,
@@ -238,10 +238,7 @@ export default Plugin.define({
 					</box>
 					{expanded() ? (
 						<>
-							{(() => {
-								const p = pr();
-								return p ? <PrCard p={p} /> : null;
-							})()}
+							<Show when={pr()}>{(p) => <PrCard p={p()} />}</Show>
 							{state().error ? (
 								<text fg={theme().text.feedback.warning.base}>
 									{pr() ? "STALE: " : ""}

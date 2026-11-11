@@ -83,10 +83,11 @@ function asRecord(value, label) {
     return value;
 }
 function asString(data, key) {
-    if (typeof data[key] !== "string") {
+    const value = data[key];
+    if (typeof value !== "string") {
         throw new Error(`Invalid PR response: ${key}`);
     }
-    return data[key];
+    return value;
 }
 function optionalString(value) {
     return typeof value === "string" ? value : undefined;
@@ -110,7 +111,7 @@ export function splitPRUrl(url) {
     return { owner: match[1], repo: match[2], number: Number(match[3]) };
 }
 function asNonNegativeInt(value, label) {
-    if (!Number.isInteger(value) || value < 0) {
+    if (typeof value !== "number" || !Number.isInteger(value) || value < 0) {
         throw new Error(`Invalid PR response: ${label}`);
     }
     return value;
@@ -134,10 +135,8 @@ export function parsePRView(text) {
         data.state !== "MERGED") {
         throw new Error("Invalid PR response: state");
     }
-    if (typeof data.url !== "string") {
-        throw new Error("Invalid PR response: url");
-    }
-    const parts = splitPRUrl(data.url);
+    const url = asString(data, "url");
+    const parts = splitPRUrl(url);
     if (parts.number !== data.number) {
         throw new Error("Invalid PR response: url number mismatch");
     }
@@ -162,7 +161,7 @@ export function parsePRView(text) {
     }
     return {
         number: data.number,
-        url: asString(data, "url"),
+        url,
         title: asString(data, "title"),
         state: data.state,
         isDraft: data.isDraft,
@@ -189,7 +188,8 @@ export function parseCounts(text) {
         throw new Error("Invalid counts response: not JSON");
     }
     const root = asRecord(data, "Invalid counts response");
-    const repository = asRecord(asRecord(root.data, "Invalid counts response").repository, "Invalid counts response");
+    const payload = asRecord(root.data, "Invalid counts response: data");
+    const repository = asRecord(payload.repository, "Invalid counts response: repository");
     const pr = asRecord(repository.pullRequest, "Invalid counts response: pullRequest");
     const totalOf = (key) => {
         const section = asRecord(pr[key], `Invalid counts response: ${key}`);
@@ -263,8 +263,7 @@ function classifyCheckRun(check) {
     if (check.conclusion === "SKIPPED" || check.conclusion === "NEUTRAL") {
         return "skipped";
     }
-    if (typeof check.conclusion === "string" &&
-        FAILED_CONCLUSIONS.has(check.conclusion)) {
+    if (check.conclusion != null && FAILED_CONCLUSIONS.has(check.conclusion)) {
         return "failed";
     }
     // Unknown or missing conclusion: never invent a pass or a failure.
@@ -409,7 +408,7 @@ export function createMonitor({ directory, publish, execute = run, now = Date.no
         lastFetchAt = 0;
         emit({ pr: null, error: "", fetchedAt: 0, loading: false });
     };
-    const isStale = (expected, cwd, abort) => stopped || expected !== version || directory() !== cwd || abort.aborted;
+    const isStale = (expected, cwd, signal) => stopped || expected !== version || directory() !== cwd || signal.aborted;
     async function cycle(force, activity) {
         if (stopped) {
             return;

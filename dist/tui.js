@@ -8,7 +8,7 @@ import { setProp as _$setProp } from "opentui:runtime-module:%40opentui%2Fsolid"
 import { createElement as _$createElement } from "opentui:runtime-module:%40opentui%2Fsolid";
 /** @jsxImportSource @opentui/solid */
 import { Plugin } from "opentui:runtime-module:%40opencode%2Fplugin%2Ftui";
-import { createMemo, createSignal, onCleanup, onMount } from "opentui:runtime-module:solid-js";
+import { createMemo, createSignal, onCleanup, onMount, Show } from "opentui:runtime-module:solid-js";
 import { ageOf, clean, copyToClipboard, createMonitor, openBrowser, summarize } from "./model.js";
 const POLL_MS = 5000;
 export default Plugin.define({
@@ -283,11 +283,15 @@ export default Plugin.define({
         _$insertNode(_el$34, _$createTextNode(`Pull Request`));
         _$insert(_el$30, (() => {
           var _c$2 = _$memo(() => !!expanded());
-          return () => _c$2() ? [_$memo(() => {
-            const p = pr();
-            return p ? _$createComponent(PrCard, {
-              p: p
-            }) : null;
+          return () => _c$2() ? [_$createComponent(Show, {
+            get when() {
+              return pr();
+            },
+            children: p => _$createComponent(PrCard, {
+              get p() {
+                return p();
+              }
+            })
           }), _$memo(() => _$memo(() => !!state().error)() ? (() => {
             var _el$37 = _$createElement("text");
             _$insert(_el$37, () => pr() ? "STALE: " : "", null);
