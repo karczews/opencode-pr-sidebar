@@ -25,7 +25,7 @@ contract lives in
 ```sh
 opencode plugin add github:karczews/opencode-pr-sidebar
 # pin a release tag if you prefer:
-opencode plugin add 'github:karczews/opencode-pr-sidebar#v0.1.0'
+opencode plugin add 'github:karczews/opencode-pr-sidebar#v0.1.1'
 ```
 
 Restart OpenCode. The Plugins dialog shows `pr-sidebar` once it loads.
@@ -56,7 +56,7 @@ Conventional commits on `main` accumulate into a release PR that bumps
 feature PRs. Install a release with:
 
 ```sh
-opencode plugin add 'github:karczews/opencode-pr-sidebar#vX.Y.Z'
+opencode plugin add 'github:karczews/opencode-pr-sidebar#v0.1.1'
 ```
 
 ## Walkthrough
