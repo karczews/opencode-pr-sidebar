@@ -9,7 +9,8 @@ on:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  # A newer push to main supersedes the older run; PR runs cancel per push.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
@@ -53,7 +54,7 @@ jobs:
           node-version: 26
 
       - name: Audit production dependencies
-        run: npm audit --omit=dev --audit-level=moderate
+        run: npm run check:audit
 
   gitleaks:
     name: gitleaks
@@ -66,7 +67,7 @@ jobs:
           persist-credentials: false
 
       - name: Scan for secrets
-        uses: gitleaks/gitleaks-action@ff98106e4c7b2bc287b24eaf42907196329070c7 # v2.3.9
+        uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3.0.0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -97,7 +98,7 @@ jobs:
             refactor
             test
           requireScope: false
-          subjectPattern: ^([a-z].*[^.]|[a-z])$
+          subjectPattern: ^(?=.{1,72}$)([a-z].*[^.]|[a-z])$
           subjectPatternError: Subject must start lowercase and not end with a period (imperative mood, max 72 chars).
 
       - name: Setup Node
@@ -110,7 +111,14 @@ jobs:
           if [ "${{ github.event_name }}" = "pull_request" ]; then
             node scripts/check-commits.mjs "${{ github.event.pull_request.base.sha }}" "${{ github.sha }}"
           else
-            node scripts/check-commits.mjs "${{ github.event.before }}" "${{ github.sha }}"
+            # Manual runs and fresh branches have an empty or zero base: only
+            # the head commit exists to check.
+            BEFORE="${{ github.event.before }}"
+            if [ -z "$BEFORE" ] || [ -z "$(printf '%s' "$BEFORE" | tr -d '0')" ]; then
+              node scripts/check-commits.mjs "${{ github.sha }}^!"
+            else
+              node scripts/check-commits.mjs "$BEFORE" "${{ github.sha }}"
+            fi
           fi
 
   workflow-lint:
