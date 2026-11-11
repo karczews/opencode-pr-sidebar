@@ -1,5 +1,7 @@
 # pr-sidebar
 
+[![check](https://github.com/karczews/opencode-pr-sidebar/actions/workflows/check.yml/badge.svg)](https://github.com/karczews/opencode-pr-sidebar/actions/workflows/check.yml)
+
 Current-branch GitHub pull request card for the OpenCode TUI sidebar.
 
 It shows the pull request for the working directory's current branch: lifecycle,
