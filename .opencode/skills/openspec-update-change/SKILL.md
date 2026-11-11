@@ -2,13 +2,12 @@
 
 name: openspec-update-change
 description: Update an OpenSpec change by revising its existing planning artifacts and keeping them coherent with one another. Use when the user wants to revise a change's plan, fold new decisions into it, or reconcile its artifacts after an edit. Also use when the user says "openspec update change" or "opsx update". If the user means the openspec update CLI command, which refreshes generated files, run that command instead. Never edits code.
-allowed-tools: Bash(openspec:*)
 license: MIT
 compatibility: Requires openspec CLI.
 metadata:
-author: openspec
-version: "1.0"
-generatedBy: "1.16.0"
+  author: openspec
+  version: "1.0"
+  generatedBy: "1.16.0"
 ---
 
 Revise a change's existing planning artifacts and keep them coherent. Never edit code.
@@ -28,7 +27,7 @@ In both branches, never create the root as a side effect: do not run `openspec i
 
 **Input**: Optionally specify a change name. If omitted, check if it can be inferred from conversation context. If vague or ambiguous you MUST prompt for available changes.
 
-This workflow revises artifacts that already exist; it never creates missing ones. When an artifact is missing, `openspec status --change "<name>" --json` names the next one and `openspec instructions "<artifact-id>" --change "<name>" --json` explains how to write it.
+This workflow revises artifacts that already exist; it never creates missing ones, except through the confirmed glob-artifact procedure in step 4 below. When an artifact is missing, `openspec status --change "<name>" --json` names the next one and `openspec instructions "<artifact-id>" --change "<name>" --json` explains how to write it.
 
 **Steps**
 
@@ -84,7 +83,7 @@ This workflow revises artifacts that already exist; it never creates missing one
 5. **Confirm and apply, one artifact at a time**
    - This step performs every artifact write in this workflow; no earlier step edits an artifact.
    - Show each proposed revision and why - including the requested edit drafted in step 4. Write only after the user confirms.
-   - If the user rejects a revision, do not write it - leave that artifact unchanged.
+   - If the user rejects a revision, do not write it - leave that artifact unchanged. Then re-check the remaining accepted revisions against the unchanged artifact for contradictions before writing them.
    - When a substantial rewrite is needed, get that artifact's rules and template first:
 
      ```bash
