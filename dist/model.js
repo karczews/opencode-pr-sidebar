@@ -16,6 +16,14 @@ export const PR_VIEW_FIELDS = [
     "statusCheckRollup",
     "updatedAt",
 ].join(",");
+// --- subprocess execution ---
+const REPO_ENV_KEYS = [
+    "GH_REPO",
+    "GIT_DIR",
+    "GIT_WORK_TREE",
+    "GIT_COMMON_DIR",
+    "GIT_INDEX_FILE",
+];
 export function run(file, args, cwd, signal, input, timeoutMs = 15000) {
     return new Promise((resolve, reject) => {
         const env = {
@@ -25,13 +33,7 @@ export function run(file, args, cwd, signal, input, timeoutMs = 15000) {
             NO_COLOR: "1",
         };
         // A launching shell's overrides must not select another worktree or repository.
-        for (const key of [
-            "GH_REPO",
-            "GIT_DIR",
-            "GIT_WORK_TREE",
-            "GIT_COMMON_DIR",
-            "GIT_INDEX_FILE",
-        ]) {
+        for (const key of REPO_ENV_KEYS) {
             delete env[key];
         }
         const child = execFile(file, args, { cwd, env, signal, timeout: timeoutMs, maxBuffer: 2 * 1024 * 1024 }, (error, stdout, stderr) => {
@@ -74,6 +76,22 @@ export async function fetchCounts(owner, repo, number, directory, signal, execut
 function isRecord(value) {
     return typeof value === "object" && value !== null;
 }
+function asRecord(value, label) {
+    if (!isRecord(value)) {
+        throw new Error(label);
+    }
+    return value;
+}
+function asString(data, key) {
+    const value = data[key];
+    if (typeof value !== "string") {
+        throw new Error(`Invalid PR response: ${key}`);
+    }
+    return value;
+}
+function optionalString(value) {
+    return typeof value === "string" ? value : undefined;
+}
 export function clean(value) {
     return (String(value ?? "")
         // biome-ignore lint/suspicious/noControlCharactersInRegex: strip terminal controls and bidi overrides from host-provided text.
@@ -93,7 +111,7 @@ export function splitPRUrl(url) {
     return { owner: match[1], repo: match[2], number: Number(match[3]) };
 }
 function asNonNegativeInt(value, label) {
-    if (!Number.isInteger(value) || value < 0) {
+    if (typeof value !== "number" || !Number.isInteger(value) || value < 0) {
         throw new Error(`Invalid PR response: ${label}`);
     }
     return value;
@@ -117,17 +135,10 @@ export function parsePRView(text) {
         data.state !== "MERGED") {
         throw new Error("Invalid PR response: state");
     }
-    if (typeof data.url !== "string") {
-        throw new Error("Invalid PR response: url");
-    }
-    const parts = splitPRUrl(data.url);
+    const url = asString(data, "url");
+    const parts = splitPRUrl(url);
     if (parts.number !== data.number) {
         throw new Error("Invalid PR response: url number mismatch");
-    }
-    for (const key of ["title", "headRefName", "baseRefName", "updatedAt"]) {
-        if (typeof data[key] !== "string") {
-            throw new Error(`Invalid PR response: ${key}`);
-        }
     }
     if (typeof data.isDraft !== "boolean") {
         throw new Error("Invalid PR response: isDraft");
@@ -139,27 +150,27 @@ export function parsePRView(text) {
     for (const entry of data.statusCheckRollup) {
         if (isRecord(entry)) {
             rollup.push({
-                __typename: typeof entry.__typename === "string" ? entry.__typename : undefined,
-                name: typeof entry.name === "string" ? entry.name : undefined,
-                context: typeof entry.context === "string" ? entry.context : undefined,
-                state: typeof entry.state === "string" ? entry.state : undefined,
-                status: typeof entry.status === "string" ? entry.status : undefined,
-                conclusion: typeof entry.conclusion === "string" ? entry.conclusion : undefined,
+                __typename: optionalString(entry.__typename),
+                name: optionalString(entry.name),
+                context: optionalString(entry.context),
+                state: optionalString(entry.state),
+                status: optionalString(entry.status),
+                conclusion: optionalString(entry.conclusion),
             });
         }
     }
     return {
         number: data.number,
-        url: data.url,
-        title: data.title,
+        url,
+        title: asString(data, "title"),
         state: data.state,
         isDraft: data.isDraft,
-        headRefName: data.headRefName,
-        baseRefName: data.baseRefName,
+        headRefName: asString(data, "headRefName"),
+        baseRefName: asString(data, "baseRefName"),
         additions: asNonNegativeInt(data.additions, "additions"),
         deletions: asNonNegativeInt(data.deletions, "deletions"),
         changedFiles: asNonNegativeInt(data.changedFiles, "changedFiles"),
-        updatedAt: data.updatedAt,
+        updatedAt: asString(data, "updatedAt"),
         mergeStateStatus: typeof data.mergeStateStatus === "string"
             ? data.mergeStateStatus
             : "UNKNOWN",
@@ -176,28 +187,17 @@ export function parseCounts(text) {
     catch {
         throw new Error("Invalid counts response: not JSON");
     }
-    if (!isRecord(data) ||
-        !isRecord(data.data) ||
-        !isRecord(data.data.repository)) {
-        throw new Error("Invalid counts response");
-    }
-    const pr = data.data.repository.pullRequest;
-    if (!isRecord(pr)) {
-        throw new Error("Invalid counts response: pullRequest");
-    }
+    const root = asRecord(data, "Invalid counts response");
+    const payload = asRecord(root.data, "Invalid counts response: data");
+    const repository = asRecord(payload.repository, "Invalid counts response: repository");
+    const pr = asRecord(repository.pullRequest, "Invalid counts response: pullRequest");
     const totalOf = (key) => {
-        const section = pr[key];
-        if (!isRecord(section)) {
-            throw new Error(`Invalid counts response: ${key}`);
-        }
+        const section = asRecord(pr[key], `Invalid counts response: ${key}`);
         return asNonNegativeInt(section.totalCount, key);
     };
     const comments = totalOf("comments");
     const reviews = totalOf("reviews");
-    const threadsSection = pr.reviewThreads;
-    if (!isRecord(threadsSection)) {
-        throw new Error("Invalid counts response: reviewThreads");
-    }
+    const threadsSection = asRecord(pr.reviewThreads, "Invalid counts response: reviewThreads");
     const threads = asNonNegativeInt(threadsSection.totalCount, "reviewThreads");
     if (!Array.isArray(threadsSection.nodes)) {
         throw new Error("Invalid counts response: reviewThreads nodes");
@@ -233,47 +233,51 @@ export function errorKind(error) {
     }
     return "refresh-failed";
 }
+const FAILED_CONCLUSIONS = new Set([
+    "FAILURE",
+    "CANCELLED",
+    "TIMED_OUT",
+    "ACTION_REQUIRED",
+    "STARTUP_FAILURE",
+    "STALE",
+]);
+function classifyStatusContext(check) {
+    if (check.state === "SUCCESS") {
+        return "passed";
+    }
+    if (check.state === "FAILURE" || check.state === "ERROR") {
+        return "failed";
+    }
+    if (check.state === "SKIPPED") {
+        return "skipped";
+    }
+    return "pending";
+}
+function classifyCheckRun(check) {
+    if (check.status !== "COMPLETED") {
+        return "pending";
+    }
+    if (check.conclusion === "SUCCESS") {
+        return "passed";
+    }
+    if (check.conclusion === "SKIPPED" || check.conclusion === "NEUTRAL") {
+        return "skipped";
+    }
+    if (check.conclusion != null && FAILED_CONCLUSIONS.has(check.conclusion)) {
+        return "failed";
+    }
+    // Unknown or missing conclusion: never invent a pass or a failure.
+    return "pending";
+}
+function classifyCheck(check) {
+    return check.__typename === "StatusContext"
+        ? classifyStatusContext(check)
+        : classifyCheckRun(check);
+}
 export function summarizeChecks(rollup) {
     const counts = { passed: 0, failed: 0, pending: 0, skipped: 0 };
     for (const check of rollup) {
-        let category;
-        if (check.__typename === "StatusContext") {
-            if (check.state === "SUCCESS") {
-                category = "passed";
-            }
-            else if (check.state === "FAILURE" || check.state === "ERROR") {
-                category = "failed";
-            }
-            else if (check.state === "SKIPPED") {
-                category = "skipped";
-            }
-            else {
-                category = "pending";
-            }
-        }
-        else if (check.status !== "COMPLETED") {
-            category = "pending";
-        }
-        else if (check.conclusion === "SUCCESS") {
-            category = "passed";
-        }
-        else if (check.conclusion === "SKIPPED" ||
-            check.conclusion === "NEUTRAL") {
-            category = "skipped";
-        }
-        else if (check.conclusion === "FAILURE" ||
-            check.conclusion === "CANCELLED" ||
-            check.conclusion === "TIMED_OUT" ||
-            check.conclusion === "ACTION_REQUIRED" ||
-            check.conclusion === "STARTUP_FAILURE" ||
-            check.conclusion === "STALE") {
-            category = "failed";
-        }
-        else {
-            // Unknown or missing conclusion: never invent a pass or a failure.
-            category = "pending";
-        }
-        counts[category]++;
+        counts[classifyCheck(check)]++;
     }
     return counts;
 }
@@ -299,6 +303,7 @@ export function lifecycleOf(pr) {
     return pr.isDraft ? "Draft" : "Open";
 }
 export function mergeLineOf(pr) {
+    // Order matters: the first matching blocker wins.
     if (pr.state === "MERGED") {
         return "Merged";
     }
@@ -335,7 +340,8 @@ export function mergeLineOf(pr) {
     return "Merge status unknown";
 }
 export function ageOf(time, now = Date.now()) {
-    const seconds = Math.max(0, Math.floor((now - new Date(time ?? Number.NaN).getTime()) / 1000));
+    const timestamp = new Date(time ?? Number.NaN).getTime();
+    const seconds = Math.max(0, Math.floor((now - timestamp) / 1000));
     if (!Number.isFinite(seconds)) {
         return "unknown";
     }
@@ -383,7 +389,7 @@ export function createMonitor({ directory, publish, execute = run, now = Date.no
     let key = "";
     let version = 0;
     let stopped = false;
-    let attempt = 0;
+    let lastFetchAt = 0;
     let request;
     let detection;
     // Serialize cycles so overlapping ticks cannot interleave fetches.
@@ -399,9 +405,10 @@ export function createMonitor({ directory, publish, execute = run, now = Date.no
         request = undefined;
         detection?.abort();
         detection = undefined;
-        attempt = 0;
+        lastFetchAt = 0;
         emit({ pr: null, error: "", fetchedAt: 0, loading: false });
     };
+    const isStale = (expected, cwd, signal) => stopped || expected !== version || directory() !== cwd || signal.aborted;
     async function cycle(force, activity) {
         if (stopped) {
             return;
@@ -458,22 +465,19 @@ export function createMonitor({ directory, publish, execute = run, now = Date.no
             request = undefined;
         }
         else if (!force &&
-            attempt > 0 &&
-            now() - attempt <
+            lastFetchAt > 0 &&
+            now() - lastFetchAt <
                 (activity ? GITHUB_ACTIVITY_THROTTLE_MS : GITHUB_THROTTLE_MS)) {
             return;
         }
         const expected = version;
         const abort = new AbortController();
         request = abort;
-        attempt = now();
+        lastFetchAt = now();
         emit({ loading: true });
         try {
             const viewText = await fetchPRView(cwd, abort.signal, execute);
-            if (stopped ||
-                expected !== version ||
-                directory() !== cwd ||
-                abort.signal.aborted) {
+            if (isStale(expected, cwd, abort.signal)) {
                 return;
             }
             const parsed = parsePRView(viewText);
@@ -483,20 +487,14 @@ export function createMonitor({ directory, publish, execute = run, now = Date.no
             }
             const parts = splitPRUrl(parsed.url);
             const countsText = await fetchCounts(parts.owner, parts.repo, parsed.number, cwd, abort.signal, execute);
-            if (stopped ||
-                expected !== version ||
-                directory() !== cwd ||
-                abort.signal.aborted) {
+            if (isStale(expected, cwd, abort.signal)) {
                 return;
             }
             const counts = parseCounts(countsText);
             emit({ pr: { ...parsed, ...counts }, error: "", fetchedAt: now() });
         }
         catch (error) {
-            if (stopped ||
-                expected !== version ||
-                directory() !== cwd ||
-                abort.signal.aborted) {
+            if (isStale(expected, cwd, abort.signal)) {
                 return;
             }
             const kind = errorKind(error);

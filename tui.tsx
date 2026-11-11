@@ -1,16 +1,14 @@
 /** @jsxImportSource @opentui/solid */
 import { Plugin } from "@opencode/plugin/tui";
-import { createSignal, onCleanup, onMount } from "solid-js";
+import { createMemo, createSignal, onCleanup, onMount, Show } from "solid-js";
 import {
 	ageOf,
 	clean,
 	copyToClipboard,
 	createMonitor,
-	lifecycleOf,
-	mergeLineOf,
 	openBrowser,
-	summarizeChecks,
-	summarizeReview,
+	summarize,
+	type CheckCounts,
 	type PullRequest,
 	type Snapshot,
 } from "./model.ts";
@@ -41,6 +39,7 @@ export default Plugin.define({
 				return "";
 			}
 		};
+		// Hide PR data fetched for a previous directory while the monitor catches up.
 		const pr = () => (state().directory === directory() ? state().pr : null);
 		const theme = () => context.theme;
 		const toast = (
@@ -131,6 +130,9 @@ export default Plugin.define({
 		}
 
 		function PrCard(props: { p: PullRequest }) {
+			// One memoized summary per card: the previous code derived the merge,
+			// review, and checks lines with separate calls.
+			const summary = createMemo(() => summarize(props.p));
 			return (
 				<>
 					<box>
@@ -161,22 +163,20 @@ export default Plugin.define({
 										: theme().text.base
 							}
 						>
-							{lifecycleOf(props.p)}
+							{summary().lifecycle}
 						</text>
-						<text fg={theme().text.muted}>
-							Review: {summarizeReview(props.p.reviewDecision)}
-						</text>
-						<text fg={mergeFg(mergeLineOf(props.p))}>
-							<b>{mergeLineOf(props.p)}</b>
+						<text fg={theme().text.muted}>Review: {summary().review}</text>
+						<text fg={mergeFg(summary().merge)}>
+							<b>{summary().merge}</b>
 						</text>
 						<text
 							fg={
-								summarizeChecks(props.p.statusCheckRollup).failed > 0
+								summary().checks.failed > 0
 									? theme().text.feedback.warning.base
 									: theme().text.muted
 							}
 						>
-							{checksLine(props.p)}
+							{checksLine(summary().checks)}
 						</text>
 					</box>
 					<box>
@@ -206,14 +206,14 @@ export default Plugin.define({
 			onMount(() => {
 				monitor = createMonitor({ directory, publish: setState });
 				monitor.tick();
+				const timer = setInterval(() => {
+					monitor?.tick();
+				}, POLL_MS);
+				// Never hold the process open on this timer alone; the host owns lifetime.
+				timer.unref?.();
+				onCleanup(() => clearInterval(timer));
 			});
-			const timer = setInterval(() => {
-				monitor?.tick();
-			}, POLL_MS);
-			// Never hold the process open on this timer alone; the host owns lifetime.
-			timer.unref?.();
 			onCleanup(() => {
-				clearInterval(timer);
 				monitor?.stop();
 				monitor = undefined;
 			});
@@ -238,7 +238,7 @@ export default Plugin.define({
 					</box>
 					{expanded() ? (
 						<>
-							{pr() ? <PrCard p={pr() as PullRequest} /> : null}
+							<Show when={pr()}>{(p) => <PrCard p={p()} />}</Show>
 							{state().error ? (
 								<text fg={theme().text.feedback.warning.base}>
 									{pr() ? "STALE: " : ""}
@@ -305,8 +305,7 @@ export default Plugin.define({
 	},
 });
 
-function checksLine(pr: PullRequest): string {
-	const counts = summarizeChecks(pr.statusCheckRollup);
+function checksLine(counts: CheckCounts): string {
 	if (counts.passed + counts.failed + counts.pending + counts.skipped === 0) {
 		return "No checks reported";
 	}
