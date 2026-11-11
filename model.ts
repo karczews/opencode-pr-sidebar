@@ -495,7 +495,7 @@ export function ageOf(
 	time: string | number | undefined,
 	now: number = Date.now(),
 ): string {
-	const timestamp = time === undefined ? Number.NaN : new Date(time).getTime();
+	const timestamp = new Date(time ?? Number.NaN).getTime();
 	const seconds = Math.max(0, Math.floor((now - timestamp) / 1000));
 	if (!Number.isFinite(seconds)) {
 		return "unknown";

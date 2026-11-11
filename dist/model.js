@@ -340,7 +340,7 @@ export function mergeLineOf(pr) {
     return "Merge status unknown";
 }
 export function ageOf(time, now = Date.now()) {
-    const timestamp = time === undefined ? Number.NaN : new Date(time).getTime();
+    const timestamp = new Date(time ?? Number.NaN).getTime();
     const seconds = Math.max(0, Math.floor((now - timestamp) / 1000));
     if (!Number.isFinite(seconds)) {
         return "unknown";
