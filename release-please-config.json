@@ -1,0 +1,9 @@
+{
+	"release-type": "node",
+	"include-v-in-tag": true,
+	"include-component-in-tag": false,
+	"packages": {
+		".": {}
+	},
+	"bump-minor-pre-major": true
+}

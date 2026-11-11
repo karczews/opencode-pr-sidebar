@@ -3,12 +3,14 @@ import { realpathSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
 // Enforces AGENTS.md commit conventions without extra dependencies:
-// type(scope): subject, lowercase imperative subject, no trailing period,
-// subject <= 72 chars. True merge commits (2+ parents) are skipped; matching
-// on the subject prefix alone would let any "Merge ..." message through.
+// type[(scope)][!]: subject, lowercase imperative subject, no trailing
+// period, subject <= 72 chars. A trailing "!" marks a semver breaking
+// change (release-please bumps minor pre-1.0, major after). True merge
+// commits (2+ parents) are skipped; matching on the subject prefix alone
+// would let any "Merge ..." message through.
 const TYPES = ["feat", "fix", "docs", "chore", "refactor", "test"];
 const HEADER = new RegExp(
-	`^(${TYPES.join("|")})(\\([^()\\s]+\\))?: (\\S[\\s\\S]*)$`,
+	`^(${TYPES.join("|")})(\\([^()\\s]+\\))?!?: (\\S[\\s\\S]*)$`,
 );
 
 export function checkMessage(header, merge = false) {
@@ -17,7 +19,7 @@ export function checkMessage(header, merge = false) {
 	}
 	const match = HEADER.exec(header);
 	if (!match) {
-		return `must match "type[(scope)]: subject" with type one of ${TYPES.join("|")} (got ${JSON.stringify(header)})`;
+		return `must match "type[(scope)][!]: subject" with type one of ${TYPES.join("|")} (got ${JSON.stringify(header)})`;
 	}
 	const subject = match[3];
 	if (subject.length > 72) {
