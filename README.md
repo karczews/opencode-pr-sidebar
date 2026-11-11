@@ -8,6 +8,8 @@ uses your authenticated GitHub CLI, and makes no model calls. The full behavior
 contract lives in
 [`openspec/specs/pr-sidebar/spec.md`](openspec/specs/pr-sidebar/spec.md).
 
+![Pull request card demo](docs/assets/card.gif)
+
 ## Requirements
 
 - OpenCode v2 with TUI plugin support (`>= 2.2.6`; uses the V2
