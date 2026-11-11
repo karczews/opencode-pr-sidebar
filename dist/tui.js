@@ -79,10 +79,11 @@ export default Plugin.define({
         var _el$ = _$createElement("box"),
           _el$2 = _$createElement("text");
         _$insertNode(_el$, _el$2);
-        _$setProp(_el$, "height", 1);
         _$setProp(_el$, "flexShrink", 0);
         _$setProp(_el$, "paddingLeft", 1);
         _$setProp(_el$, "paddingRight", 1);
+        _$setProp(_el$, "border", true);
+        _$setProp(_el$, "borderStyle", "rounded");
         _$setProp(_el$, "onMouseOver", () => setOver(true));
         _$setProp(_el$, "onMouseOut", () => setOver(false));
         _$setProp(_el$, "onMouseUp", event => {
@@ -94,14 +95,17 @@ export default Plugin.define({
         });
         _$insert(_el$2, () => props.label);
         _$effect(_p$ => {
-          var _v$ = highlighted() ? theme().background.raised.high : theme().background.raised.base,
-            _v$2 = disabled() ? theme().text.faint : theme().text.base;
-          _v$ !== _p$.e && (_p$.e = _$setProp(_el$, "backgroundColor", _v$, _p$.e));
-          _v$2 !== _p$.t && (_p$.t = _$setProp(_el$2, "fg", _v$2, _p$.t));
+          var _v$ = disabled() ? theme().text.faint : highlighted() ? theme().text.base : theme().border.base,
+            _v$2 = highlighted() ? theme().background.raised.high : theme().background.raised.base,
+            _v$3 = disabled() ? theme().text.faint : theme().text.base;
+          _v$ !== _p$.e && (_p$.e = _$setProp(_el$, "borderColor", _v$, _p$.e));
+          _v$2 !== _p$.t && (_p$.t = _$setProp(_el$, "backgroundColor", _v$2, _p$.t));
+          _v$3 !== _p$.a && (_p$.a = _$setProp(_el$2, "fg", _v$3, _p$.a));
           return _p$;
         }, {
           e: undefined,
-          t: undefined
+          t: undefined,
+          a: undefined
         });
         return _el$;
       })();
@@ -138,12 +142,12 @@ export default Plugin.define({
         _$insert(_el$9, () => clean(props.p.headRefName), _el$0);
         _$insert(_el$9, () => clean(props.p.baseRefName), null);
         _$effect(_p$ => {
-          var _v$3 = theme().markdown.link,
-            _v$4 = props.p.url,
-            _v$5 = theme().text.muted;
-          _v$3 !== _p$.e && (_p$.e = _$setProp(_el$4, "fg", _v$3, _p$.e));
-          _v$4 !== _p$.t && (_p$.t = _$setProp(_el$8, "href", _v$4, _p$.t));
-          _v$5 !== _p$.a && (_p$.a = _$setProp(_el$9, "fg", _v$5, _p$.a));
+          var _v$4 = theme().markdown.link,
+            _v$5 = props.p.url,
+            _v$6 = theme().text.muted;
+          _v$4 !== _p$.e && (_p$.e = _$setProp(_el$4, "fg", _v$4, _p$.e));
+          _v$5 !== _p$.t && (_p$.t = _$setProp(_el$8, "href", _v$5, _p$.t));
+          _v$6 !== _p$.a && (_p$.a = _$setProp(_el$9, "fg", _v$6, _p$.a));
           return _p$;
         }, {
           e: undefined,
@@ -170,14 +174,14 @@ export default Plugin.define({
         _$insert(_el$14, () => summary().merge);
         _$insert(_el$15, () => checksLine(summary().checks));
         _$effect(_p$ => {
-          var _v$6 = props.p.state === "MERGED" ? theme().text.feedback.success.base : props.p.state === "CLOSED" ? theme().text.feedback.error.base : theme().text.base,
-            _v$7 = theme().text.muted,
-            _v$8 = mergeFg(summary().merge),
-            _v$9 = summary().checks.failed > 0 ? theme().text.feedback.warning.base : theme().text.muted;
-          _v$6 !== _p$.e && (_p$.e = _$setProp(_el$10, "fg", _v$6, _p$.e));
-          _v$7 !== _p$.t && (_p$.t = _$setProp(_el$11, "fg", _v$7, _p$.t));
-          _v$8 !== _p$.a && (_p$.a = _$setProp(_el$13, "fg", _v$8, _p$.a));
-          _v$9 !== _p$.o && (_p$.o = _$setProp(_el$15, "fg", _v$9, _p$.o));
+          var _v$7 = props.p.state === "MERGED" ? theme().text.feedback.success.base : props.p.state === "CLOSED" ? theme().text.feedback.error.base : theme().text.base,
+            _v$8 = theme().text.muted,
+            _v$9 = mergeFg(summary().merge),
+            _v$0 = summary().checks.failed > 0 ? theme().text.feedback.warning.base : theme().text.muted;
+          _v$7 !== _p$.e && (_p$.e = _$setProp(_el$10, "fg", _v$7, _p$.e));
+          _v$8 !== _p$.t && (_p$.t = _$setProp(_el$11, "fg", _v$8, _p$.t));
+          _v$9 !== _p$.a && (_p$.a = _$setProp(_el$13, "fg", _v$9, _p$.a));
+          _v$0 !== _p$.o && (_p$.o = _$setProp(_el$15, "fg", _v$0, _p$.o));
           return _p$;
         }, {
           e: undefined,
@@ -221,14 +225,14 @@ export default Plugin.define({
           return () => _c$() ? "Refreshing..." : `Checked ${ageOf(state().fetchedAt, state().now)}`;
         })());
         _$effect(_p$ => {
-          var _v$0 = theme().text.base,
-            _v$1 = theme().text.muted,
+          var _v$1 = theme().text.base,
             _v$10 = theme().text.muted,
-            _v$11 = theme().text.muted;
-          _v$0 !== _p$.e && (_p$.e = _$setProp(_el$17, "fg", _v$0, _p$.e));
-          _v$1 !== _p$.t && (_p$.t = _$setProp(_el$23, "fg", _v$1, _p$.t));
-          _v$10 !== _p$.a && (_p$.a = _$setProp(_el$27, "fg", _v$10, _p$.a));
-          _v$11 !== _p$.o && (_p$.o = _$setProp(_el$29, "fg", _v$11, _p$.o));
+            _v$11 = theme().text.muted,
+            _v$12 = theme().text.muted;
+          _v$1 !== _p$.e && (_p$.e = _$setProp(_el$17, "fg", _v$1, _p$.e));
+          _v$10 !== _p$.t && (_p$.t = _$setProp(_el$23, "fg", _v$10, _p$.t));
+          _v$11 !== _p$.a && (_p$.a = _$setProp(_el$27, "fg", _v$11, _p$.a));
+          _v$12 !== _p$.o && (_p$.o = _$setProp(_el$29, "fg", _v$12, _p$.o));
           return _p$;
         }, {
           e: undefined,
@@ -324,12 +328,12 @@ export default Plugin.define({
           })()] : null;
         })(), null);
         _$effect(_p$ => {
-          var _v$12 = Boolean(pr() || state().error),
-            _v$13 = theme().text.base,
-            _v$14 = theme().text.base;
-          _v$12 !== _p$.e && (_p$.e = _$setProp(_el$30, "visible", _v$12, _p$.e));
-          _v$13 !== _p$.t && (_p$.t = _$setProp(_el$32, "fg", _v$13, _p$.t));
-          _v$14 !== _p$.a && (_p$.a = _$setProp(_el$33, "fg", _v$14, _p$.a));
+          var _v$13 = Boolean(pr() || state().error),
+            _v$14 = theme().text.base,
+            _v$15 = theme().text.base;
+          _v$13 !== _p$.e && (_p$.e = _$setProp(_el$30, "visible", _v$13, _p$.e));
+          _v$14 !== _p$.t && (_p$.t = _$setProp(_el$32, "fg", _v$14, _p$.t));
+          _v$15 !== _p$.a && (_p$.a = _$setProp(_el$33, "fg", _v$15, _p$.a));
           return _p$;
         }, {
           e: undefined,
