@@ -48,7 +48,7 @@ notes.
 ## Releases
 
 Versions are managed by [release-please](https://github.com/googleapis/release-please):
-`feat` → minor, `fix` → patch, `!` (`feat!:`) → breaking (minor while `0.x`,
+`feat` → minor, `fix`/`perf` → patch, `!` (`feat!:`) → breaking (minor while `0.x`,
 major after); `docs`/`chore`/`test`/`refactor` alone trigger no release.
 Conventional commits on `main` accumulate into a release PR that bumps
 `package.json`/`package-lock.json`, updates `CHANGELOG.md`, and tags

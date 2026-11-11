@@ -8,7 +8,7 @@ import { fileURLToPath } from "node:url";
 // change (release-please bumps minor pre-1.0, major after). True merge
 // commits (2+ parents) are skipped; matching on the subject prefix alone
 // would let any "Merge ..." message through.
-const TYPES = ["feat", "fix", "docs", "chore", "refactor", "test"];
+const TYPES = ["feat", "fix", "docs", "chore", "refactor", "test", "perf"];
 const HEADER = new RegExp(
 	`^(${TYPES.join("|")})(\\([^()\\s]+\\))?!?: (\\S[\\s\\S]*)$`,
 );
