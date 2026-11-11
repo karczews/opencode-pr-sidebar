@@ -27,5 +27,6 @@ Examples:
 Versions are owned by release-please (node strategy): never bump
 `package.json`/`package-lock.json`, `CHANGELOG.md`, or
 `.release-please-manifest.json` manually — CI rejects such edits in feature
-PRs. `release-please-config.json` stays human-editable. `docs`/`chore`/`test`/
-`refactor` commits trigger no release.
+PRs. `release-please-config.json` stays human-editable. The install pin in
+`README.md` carries an `x-release-please-version` marker — leave that line's
+shape intact. `docs`/`chore`/`test`/`refactor` commits trigger no release.

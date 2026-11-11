@@ -25,7 +25,7 @@ contract lives in
 ```sh
 opencode plugin add github:karczews/opencode-pr-sidebar
 # pin a release tag if you prefer:
-opencode plugin add 'github:karczews/opencode-pr-sidebar#v0.1.1'
+opencode plugin add 'github:karczews/opencode-pr-sidebar#v0.1.1' # x-release-please-version
 ```
 
 Restart OpenCode. The Plugins dialog shows `pr-sidebar` once it loads.
