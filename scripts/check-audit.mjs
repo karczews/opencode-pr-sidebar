@@ -58,8 +58,9 @@ export function evaluate(report, exceptions) {
 }
 
 function loadReport() {
+	let report = null;
 	try {
-		return JSON.parse(
+		report = JSON.parse(
 			execFileSync("npm", ["audit", "--json"], {
 				encoding: "utf8",
 				stdio: ["ignore", "pipe", "pipe"],
@@ -70,12 +71,26 @@ function loadReport() {
 		// JSON report is still on stdout.
 		const output = error.stdout?.toString() ?? "";
 		try {
-			return JSON.parse(output);
+			report = JSON.parse(output);
 		} catch {
-			console.error("check-audit: npm audit produced no JSON output");
-			process.exit(1);
+			report = null;
 		}
 	}
+	// A JSON error envelope (e.g. registry failures) has no `vulnerabilities`
+	// map and must never count as a clean audit.
+	if (!isUsableReport(report)) {
+		console.error("check-audit: npm audit produced no usable report");
+		process.exit(1);
+	}
+	return report;
+}
+
+export function isUsableReport(report) {
+	return (
+		report !== null &&
+		typeof report === "object" &&
+		typeof report.vulnerabilities === "object"
+	);
 }
 
 function main() {

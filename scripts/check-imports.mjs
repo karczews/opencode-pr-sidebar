@@ -62,16 +62,18 @@ function runtimeSpecifiers(file, source) {
 			node.moduleSpecifier
 		) {
 			specifiers.push(node.moduleSpecifier.getText(ast).slice(1, -1));
-		} else if (
-			node.kind === SyntaxKind.CallExpression &&
-			node.expression.kind === SyntaxKind.ImportKeyword &&
-			node.arguments.length === 1
-		) {
-			const argument = node.arguments[0];
-			if (argument.kind === SyntaxKind.StringLiteral) {
-				specifiers.push(argument.text);
-			} else {
-				specifiers.push(null);
+		} else if (node.kind === SyntaxKind.CallExpression) {
+			const callee = node.expression;
+			const isDynamicImport = callee.kind === SyntaxKind.ImportKeyword;
+			const isRequire =
+				callee.kind === SyntaxKind.Identifier && callee.text === "require";
+			if ((isDynamicImport || isRequire) && node.arguments.length >= 1) {
+				const argument = node.arguments[0];
+				if (argument.kind === SyntaxKind.StringLiteral) {
+					specifiers.push(argument.text);
+				} else {
+					specifiers.push(null);
+				}
 			}
 		}
 		node.forEachChild(visit);
