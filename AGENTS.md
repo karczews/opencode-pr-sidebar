@@ -8,7 +8,7 @@ Verify with `npm run check` (format, lint, typecheck, model tests, registration 
 
 Use Conventional Commits for every commit: `type(scope): subject`.
 
-- `type`: `feat`, `fix`, `docs`, `chore`, `refactor`, `test`. Use `docs` for OpenSpec planning artifacts.
+- `type`: `feat`, `fix`, `docs`, `chore`, `refactor`, `test`, `perf`. Use `docs` for OpenSpec planning artifacts.
 - `scope`: area touched, e.g. `openspec`, `pr-sidebar`. Omit it when the change is repo-wide.
 - `subject`: imperative mood, lowercase, no trailing period, max 72 chars.
 - Append `!` before the colon for semver breaking changes (`feat!:`).

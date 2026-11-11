@@ -101,6 +101,7 @@ jobs:
             chore
             refactor
             test
+            perf
           requireScope: false
           subjectPattern: ^(?=.{1,72}$)([a-z].*[^.]|[a-z])$
           subjectPatternError: Subject must start lowercase and not end with a period (imperative mood, max 72 chars).
