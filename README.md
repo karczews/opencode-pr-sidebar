@@ -30,6 +30,10 @@ opencode plugin add 'github:karczews/opencode-pr-sidebar#v0.1.1'
 ```
 <!-- x-release-please-end -->
 
+This is a TUI-only plugin — `plugin add` records it in
+`~/.config/opencode/cli.json` automatically (not `opencode.json`). Verify with
+`opencode plugin list`.
+
 Restart OpenCode. The Plugins dialog shows `pr-sidebar` once it loads.
 
 ### From a local checkout
