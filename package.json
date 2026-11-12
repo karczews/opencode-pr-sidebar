@@ -4,6 +4,17 @@
 	"private": false,
 	"type": "module",
 	"description": "Current-branch GitHub PR card for the OpenCode TUI sidebar",
+	"keywords": [
+		"opencode-plugin",
+		"opencode",
+		"tui",
+		"github",
+		"pull-request"
+	],
+	"homepage": "https://github.com/karczews/opencode-pr-sidebar#readme",
+	"bugs": {
+		"url": "https://github.com/karczews/opencode-pr-sidebar/issues"
+	},
 	"license": "MIT",
 	"repository": {
 		"type": "git",
