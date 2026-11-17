@@ -58,7 +58,7 @@ notes.
 
    ```
    +-------------------------------------------+
-   | v Pull Request                            |
+   | ▼ Pull Request                            |
    | #42 Fix login  (hyperlink, click to open) |
    | feature -> main                           |
    | Open                                      |

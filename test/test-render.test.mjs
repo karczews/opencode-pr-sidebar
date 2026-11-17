@@ -663,3 +663,31 @@ test("header toggles the card and survives a resize", async () => {
 		assert.ok(expanded.includes("Example smoke PR"), "card expands again");
 	});
 });
+
+test("header uses triangle disclosure indicators", async () => {
+	await runCase({}, async (setup) => {
+		const expanded = await pollFor(setup, (text) =>
+			text.includes("Example smoke PR"),
+		);
+		assert.ok(
+			expanded.includes("▼"),
+			"expanded header must show a down-pointing triangle",
+		);
+		const spans = setup.captureSpans();
+		const at = findText(spans, "Pull Request");
+		assert.ok(at, "header must be visible");
+		await setup.mockMouse.click(at.x, at.y, 0);
+		const collapsed = await pollFor(
+			setup,
+			(text) => !text.includes("Example smoke PR"),
+		);
+		assert.ok(
+			collapsed.includes("▶"),
+			"collapsed header must show a right-pointing triangle",
+		);
+		assert.ok(
+			!collapsed.includes("▼"),
+			"collapsed header must not show the expanded triangle",
+		);
+	});
+});
