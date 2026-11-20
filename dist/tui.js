@@ -278,7 +278,7 @@ export default Plugin.define({
           event.stopPropagation();
           setExpanded(value => !value);
         });
-        _$insert(_el$32, () => expanded() ? "v" : ">");
+        _$insert(_el$32, () => expanded() ? "▼" : "▶");
         _$insertNode(_el$33, _el$34);
         _$insertNode(_el$34, _$createTextNode(`Pull Request`));
         _$insert(_el$30, (() => {
