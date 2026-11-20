@@ -63,9 +63,11 @@ const REGEX_PRECEDING_KEYWORDS = new Set([
 	"yield",
 ]);
 
-// Words that end the bounded import/export lookahead: past them the statement
-// is a declaration whose body the main loop must keep scanning as code.
-const STATEMENT_STOP_WORDS = new Set([
+// Words that, immediately after `export`, begin a declaration body instead
+// of a module specifier. Applied to the first token only: `export * as
+// default from "m"` uses `default` as a name, and `import async from "m"`
+// uses `async` as one.
+const EXPORT_STOP_WORDS = new Set([
 	"async",
 	"class",
 	"const",
@@ -74,6 +76,22 @@ const STATEMENT_STOP_WORDS = new Set([
 	"let",
 	"var",
 ]);
+
+// A `)` closing the parenthesized head of one of these is followed by a
+// statement, where a `/` starts a regex: `if (x) /re/.test(s)`. A `)` in
+// expression position keeps division: `(total) / divisor`.
+const CONTROL_HEAD_KEYWORDS = new Set([
+	"if",
+	"while",
+	"for",
+	"switch",
+	"catch",
+	"with",
+]);
+
+// JavaScript line terminators. `//` comments end at any of these, and the
+// statement lookahead treats all of them as line bounds.
+const LINE_TERMINATORS = new Set(["\n", "\r", "\u2028", "\u2029"]);
 
 function decodeEscapes(raw) {
 	let out = "";
@@ -148,44 +166,55 @@ function decodeEscapes(raw) {
 }
 
 // Value-level module specifiers only: skips `import type`, `export type`,
-// comments, string and regex contents, and records the first argument of
-// dynamic `import()` / `require()`. Implemented as a small lexer so it does
-// not depend on the TypeScript compiler API, which TS 7 (tsgo) removed; only
-// the `tsc` CLI is used elsewhere, so this script stays version-agnostic.
+// type-position `import()` queries, comments, string and regex contents, and
+// records the first argument of dynamic `import()` / `require()`. Implemented
+// as a small lexer so it does not depend on the TypeScript compiler API,
+// which TS 7 (tsgo) removed; only the `tsc` CLI is used elsewhere, so this
+// script stays version-agnostic.
 //
 // Design invariants:
 // - the main loop never skips past a statement body, so `require()` /
 //   `import()` inside exported functions are still recorded;
-// - statements are never consumed beyond a newline at brace depth 0, so
-//   semicolon-less files do not hide later imports;
-// - only the first argument of `import(...)`/`require(...)` is read;
-//   comments in front of it are trivia, and a second options argument is
-//   ignored;
+// - the import/export lookahead never consumes past a line terminator at
+//   brace depth 0 (continuing only when the next line starts the specifier),
+//   so semicolon-less files do not hide later statements;
+// - only the first argument of `import(...)`/`require(...)` is read, and a
+//   quoted first argument counts only when the argument ends there —
+//   computed specifiers (`"./a" + suffix`) report as non-literal;
 // - `.`-qualified `import`/`require` and `function require(` declarations are
-//   not calls;
+//   not calls, and zero-argument calls record nothing;
 // - template-literal specifiers report as non-literal, matching the previous
 //   AST behavior (only quoted strings counted).
 //
-// Known simplifications (none occur in this repo's sources): a specifier
-// starting on the line after its `from` keyword is not matched, and a class
-// method named `require` is read as a call.
+// Known simplifications (none occur in this repo's sources): a class method
+// named `require` is read as a call; a dynamic `import()` directly after a
+// colon (`case` label, object key, ternary alternate) is treated as a
+// type-position query and skipped; a regex literal immediately after a binary
+// `+`/`-` is read as division.
 export function runtimeSpecifiers(source) {
 	const specifiers = [];
 	const n = source.length;
 	let i = 0;
 	// Last significant atom: null | "ident" | "num" | "str" | "regex" |
-	// `kw:<word>` | `punct:<char>`. Drives regex-vs-division and the
-	// property-access exclusion.
+	// "postfix" | "ctrl" | `kw:<word>` | `punct:<char>`. Drives
+	// regex-vs-division and the property-access exclusion.
 	let prev = null;
 	// Brace depth of each open `${` interpolation, innermost last.
 	const interp = [];
+	// Token that preceded each open `(`, innermost last. Closing a
+	// control-head paren yields "ctrl" so a following `/` is a regex.
+	const parens = [];
 
 	const isWordChar = (c) =>
 		(c >= "a" && c <= "z") ||
 		(c >= "A" && c <= "Z") ||
 		(c >= "0" && c <= "9") ||
 		c === "_" ||
-		c === "$";
+		c === "$" ||
+		// Non-ASCII text outside strings/comments is identifier or JSX
+		// text; keeping it inside words can never synthesize the ASCII
+		// trigger words, but does stop `prérequire` from splitting.
+		c.codePointAt(0) > 127;
 
 	function skipTrivia() {
 		while (i < n) {
@@ -202,7 +231,7 @@ export function runtimeSpecifiers(source) {
 			) {
 				i++;
 			} else if (c === "/" && source[i + 1] === "/") {
-				while (i < n && source[i] !== "\n") i++;
+				while (i < n && !LINE_TERMINATORS.has(source[i])) i++;
 			} else if (c === "/" && source[i + 1] === "*") {
 				i += 2;
 				while (i < n && !(source[i] === "*" && source[i + 1] === "/")) i++;
@@ -228,7 +257,9 @@ export function runtimeSpecifiers(source) {
 	}
 
 	// Reads a quoted string at `source[i]` (`'` or `"`), returning the decoded
-	// runtime value. Template literals are handled by the main loop.
+	// runtime value. A backslash before a line terminator is a continuation:
+	// it is consumed without contributing to the value. U+2028/U+2029 are
+	// legal string characters (ES2019), so they do not end the string.
 	function readQuoted() {
 		const quote = source[i];
 		i++;
@@ -236,7 +267,16 @@ export function runtimeSpecifiers(source) {
 		while (i < n) {
 			const c = source[i];
 			if (c === "\\") {
-				raw += c + (source[i + 1] ?? "");
+				const d = source[i + 1];
+				if (d === "\r" && source[i + 2] === "\n") {
+					i += 3;
+					continue;
+				}
+				if (LINE_TERMINATORS.has(d)) {
+					i += 2;
+					continue;
+				}
+				raw += c + (d ?? "");
 				i += 2;
 				continue;
 			}
@@ -244,7 +284,7 @@ export function runtimeSpecifiers(source) {
 				i++;
 				return { ok: true, value: decodeEscapes(raw) };
 			}
-			if (c === "\n") {
+			if (c === "\n" || c === "\r") {
 				return { ok: false, value: "" };
 			}
 			raw += c;
@@ -285,7 +325,7 @@ export function runtimeSpecifiers(source) {
 				i += 2;
 				continue;
 			}
-			if (c === "\n") break;
+			if (LINE_TERMINATORS.has(c)) break;
 			if (inClass) {
 				if (c === "]") inClass = false;
 				i++;
@@ -325,9 +365,16 @@ export function runtimeSpecifiers(source) {
 	}
 
 	function regexAllowed() {
-		if (prev === null) return true;
-		if (prev === "num" || prev === "str" || prev === "regex") return false;
-		if (prev === "ident") return false;
+		if (prev === null || prev === "ctrl") return true;
+		if (
+			prev === "num" ||
+			prev === "str" ||
+			prev === "regex" ||
+			prev === "ident" ||
+			prev === "postfix"
+		) {
+			return false;
+		}
 		if (prev.startsWith("kw:")) {
 			return REGEX_PRECEDING_KEYWORDS.has(prev.slice(3));
 		}
@@ -338,17 +385,42 @@ export function runtimeSpecifiers(source) {
 	}
 
 	// Reads just the first argument of `import(...)` / `require(...)` from the
-	// opening parenthesis. Returns the decoded specifier for a quoted string,
-	// null for anything else (non-literal, matching the AST-based version).
+	// opening parenthesis. Returns the decoded specifier for a complete
+	// quoted argument, null for a non-literal one (computed or template), and
+	// undefined when the call has no arguments (nothing to record, matching
+	// the AST-based version).
 	function readFirstArgument() {
 		i++;
 		skipTrivia();
 		const c = source[i];
+		if (c === ")") {
+			return undefined;
+		}
 		if (c === "'" || c === '"') {
 			const lit = readQuoted();
-			return lit.ok ? lit.value : null;
+			if (!lit.ok) {
+				return null;
+			}
+			// A leading quoted token is only the whole argument when the
+			// argument ends there; `import("./a" + suffix)` is computed.
+			const at = i;
+			skipTrivia();
+			const next = source[i];
+			i = at;
+			if (next !== ")" && next !== ",") {
+				return null;
+			}
+			return lit.value;
 		}
 		return null;
+	}
+
+	function recordCall() {
+		const arg = readFirstArgument();
+		if (arg !== undefined) {
+			specifiers.push(arg);
+		}
+		prev = "ident";
 	}
 
 	function skipTemplateAtom() {
@@ -381,9 +453,10 @@ export function runtimeSpecifiers(source) {
 	// Pure lookahead within one import/export statement for its module
 	// specifier: `from "spec"` or a bare side-effect `"spec"`. Restores the
 	// cursor before returning so the caller keeps scanning the statement as
-	// ordinary code (nested dynamic imports stay visible). Never crosses a
-	// newline at brace depth 0 and stops at tokens that only appear when the
-	// keyword is followed by a declaration body instead of a specifier.
+	// ordinary code (nested dynamic imports stay visible). The scan stops at
+	// `;`, at declaration tokens right after `export`, at a line terminator
+	// unless the next line starts the specifier (`from` or the quote), and
+	// never at declaration names inside the clause.
 	function specifierAfter(keyword) {
 		const save = i;
 		let depth = 0;
@@ -391,15 +464,27 @@ export function runtimeSpecifiers(source) {
 		let first = true;
 		while (i < n) {
 			const c = source[i];
-			if (c === "\n") {
-				if (depth === 0) break;
+			if (LINE_TERMINATORS.has(c)) {
+				if (depth === 0) {
+					const at = i;
+					i++;
+					while (i < n && (source[i] === " " || source[i] === "\t")) i++;
+					const next = source[i];
+					const nextWord =
+						next !== undefined && isWordChar(next) ? peekWord() : "";
+					i = at;
+					if (nextWord === "from" || next === "'" || next === '"') {
+						i++;
+						continue;
+					}
+					break;
+				}
 				i++;
 				continue;
 			}
 			if (
 				c === " " ||
 				c === "\t" ||
-				c === "\r" ||
 				c === "\f" ||
 				c === "\v" ||
 				c === "\u00a0"
@@ -408,7 +493,7 @@ export function runtimeSpecifiers(source) {
 				continue;
 			}
 			if (c === "/" && source[i + 1] === "/") {
-				while (i < n && source[i] !== "\n") i++;
+				while (i < n && !LINE_TERMINATORS.has(source[i])) i++;
 				continue;
 			}
 			if (c === "/" && source[i + 1] === "*") {
@@ -419,6 +504,12 @@ export function runtimeSpecifiers(source) {
 			}
 			if (c === ";") break;
 			if (c === "'" || c === '"') {
+				if (depth > 0) {
+					// Quoted binding name inside the clause: `import { "a-b" as a }`.
+					readQuoted();
+					first = false;
+					continue;
+				}
 				const sideEffect =
 					first && keyword === "import" && !sawFrom && depth === 0;
 				if (sideEffect || (sawFrom && depth === 0)) {
@@ -446,7 +537,9 @@ export function runtimeSpecifiers(source) {
 					first = false;
 					continue;
 				}
-				if (depth === 0 && STATEMENT_STOP_WORDS.has(word)) break;
+				if (first && keyword === "export" && EXPORT_STOP_WORDS.has(word)) {
+					break;
+				}
 				first = false;
 				continue;
 			}
@@ -471,6 +564,25 @@ export function runtimeSpecifiers(source) {
 		return null;
 	}
 
+	// `import type` is type-only when `type` is the modifier (followed by a
+	// clause or a different binding name), but `import type from "m"` binds
+	// `type` as a value and must still be checked.
+	function importIsTypeOnly() {
+		const save = i;
+		readWord(); // consume `type`
+		skipTrivia();
+		const c = source[i];
+		let typeOnly = false;
+		if (c === "{" || c === "*") {
+			typeOnly = true;
+		} else if (c !== undefined && isWordChar(c)) {
+			const word = peekWord();
+			typeOnly = word !== "from" && word !== "as";
+		}
+		i = save;
+		return typeOnly;
+	}
+
 	while (i < n) {
 		const c = source[i];
 		if (
@@ -481,13 +593,15 @@ export function runtimeSpecifiers(source) {
 			c === "\f" ||
 			c === "\v" ||
 			c === "\u00a0" ||
-			c === "\ufeff"
+			c === "\ufeff" ||
+			c === "\u2028" ||
+			c === "\u2029"
 		) {
 			i++;
 			continue;
 		}
 		if (c === "/" && source[i + 1] === "/") {
-			while (i < n && source[i] !== "\n") i++;
+			while (i < n && !LINE_TERMINATORS.has(source[i])) i++;
 			continue;
 		}
 		if (c === "/" && source[i + 1] === "*") {
@@ -506,6 +620,9 @@ export function runtimeSpecifiers(source) {
 			const state = readTemplateSegment();
 			if (state === "interp") {
 				interp.push(0);
+				// An interpolation is an expression start: a `/` there is a
+				// regex, whatever the tag before the template was.
+				prev = "punct:(";
 			} else {
 				prev = "str";
 			}
@@ -524,6 +641,7 @@ export function runtimeSpecifiers(source) {
 				const state = readTemplateSegment();
 				if (state === "interp") {
 					interp.push(0);
+					prev = "punct:(";
 				} else {
 					prev = "str";
 				}
@@ -531,6 +649,46 @@ export function runtimeSpecifiers(source) {
 			}
 			interp[interp.length - 1]--;
 			i++;
+			continue;
+		}
+		if (c === "(") {
+			// Record the token before the paren so the matching `)` knows
+			// whether it closed a control head (regex follows) or an
+			// expression (division follows).
+			parens.push(prev);
+			i++;
+			prev = "punct:(";
+			continue;
+		}
+		if (c === ")") {
+			const record = parens.pop();
+			const closesControlHead =
+				record !== undefined &&
+				record.startsWith("kw:") &&
+				CONTROL_HEAD_KEYWORDS.has(record.slice(3));
+			prev = closesControlHead ? "ctrl" : "punct:)";
+			i++;
+			continue;
+		}
+		if (c === "+") {
+			if (source[i + 1] === "+") {
+				i += 2;
+				// Postfix ends an operand: a following `/` is division.
+				prev = "postfix";
+				continue;
+			}
+			i++;
+			prev = "punct:+";
+			continue;
+		}
+		if (c === "-") {
+			if (source[i + 1] === "-") {
+				i += 2;
+				prev = "postfix";
+				continue;
+			}
+			i++;
+			prev = "punct:-";
 			continue;
 		}
 		if (c === "/") {
@@ -558,14 +716,25 @@ export function runtimeSpecifiers(source) {
 		}
 		if (isWordChar(c)) {
 			const word = readWord();
-			if (word === "import" && prev !== "punct:.") {
-				skipTrivia();
-				if (source[i] === "(") {
-					specifiers.push(readFirstArgument());
-					prev = "ident";
+			// A word after `.`/`?.` is a property name: `settings.return`
+			// stays an operand, not the `return` keyword, and a property
+			// named `import`/`require` is never a call.
+			const isProperty = prev === "punct:.";
+			if (word === "import" && !isProperty) {
+				// Type-position queries (`x: import("./t").Foo`,
+				// `Foo<import("./t").T>`, `typeof import("./t")`) carry no
+				// runtime dependency. See the header for this heuristic's
+				// documented blind spots.
+				if (prev === "punct::" || prev === "punct:<" || prev === "kw:typeof") {
+					prev = "kw:import";
 					continue;
 				}
-				if (peekWord() === "type") {
+				skipTrivia();
+				if (source[i] === "(") {
+					recordCall();
+					continue;
+				}
+				if (peekWord() === "type" && importIsTypeOnly()) {
 					prev = "kw:import";
 					continue;
 				}
@@ -576,7 +745,7 @@ export function runtimeSpecifiers(source) {
 				prev = "kw:import";
 				continue;
 			}
-			if (word === "export" && prev !== "punct:.") {
+			if (word === "export" && !isProperty) {
 				if (peekWord() === "type") {
 					prev = "kw:export";
 					continue;
@@ -588,17 +757,16 @@ export function runtimeSpecifiers(source) {
 				prev = "kw:export";
 				continue;
 			}
-			if (word === "require" && prev !== "punct:." && prev !== "kw:function") {
+			if (word === "require" && !isProperty && prev !== "kw:function") {
 				const at = i;
 				skipTrivia();
 				if (source[i] === "(") {
-					specifiers.push(readFirstArgument());
-					prev = "ident";
+					recordCall();
 					continue;
 				}
 				i = at;
 			}
-			prev = KEYWORDS.has(word) ? `kw:${word}` : "ident";
+			prev = !isProperty && KEYWORDS.has(word) ? `kw:${word}` : "ident";
 			continue;
 		}
 		i++;
@@ -734,6 +902,12 @@ function main() {
 	);
 }
 
-if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) {
+// import.meta.main is symlink-safe; the argv comparison covers runtimes
+// where it is not yet defined. Either way, importing the scanner from the
+// test suite leaves main() idle.
+const isMain =
+	import.meta.main ??
+	import.meta.url === pathToFileURL(process.argv[1] ?? "").href;
+if (isMain) {
 	main();
 }

@@ -71,8 +71,8 @@ const CASES = [
 	],
 	[
 		"division is not a regex",
-		'const half = total / 2;\nimport { A } from "node:fs";',
-		["node:fs"],
+		'const half = total / require("node:os").cpus().length;',
+		["node:os"],
 	],
 	[
 		"template interpolation is scanned as code",
@@ -93,6 +93,78 @@ const CASES = [
 		"comments hide nothing",
 		'// import { X } from "evil";\n/* import "evil" */\nimport { A } from "node:fs";',
 		["node:fs"],
+	],
+	[
+		"computed dynamic import is non-literal",
+		'await import("./model.js" + suffix);',
+		[null],
+	],
+	[
+		"computed specifier prefix is non-literal",
+		'await import("node:" + name);',
+		[null],
+	],
+	[
+		"default import named async",
+		'import async from "missing-package";',
+		["missing-package"],
+	],
+	[
+		"namespace re-export named default",
+		'export * as default from "./adapter.js";',
+		["./adapter.js"],
+	],
+	[
+		"quoted binding name in import clause",
+		'import { "adapter-v2" as adapter } from "./adapter.js";',
+		["./adapter.js"],
+	],
+	[
+		"type as default binding is still checked",
+		'import type from "./adapter.js";\ntype();',
+		["./adapter.js"],
+	],
+	["zero-argument require records nothing", "require();", []],
+	[
+		"type-position import query is skipped",
+		'let x: import("./types").Foo;',
+		[],
+	],
+	[
+		"control-head regex is not division",
+		'if (ready) /require("external-adapter")/.test(text);',
+		[],
+	],
+	["unicode identifier is one token", 'prérequire("external-adapter");', []],
+	[
+		"postfix division keeps scanning",
+		'const half = count++ / Number(require("external-adapter"));',
+		["external-adapter"],
+	],
+	[
+		"keyword property name stays operand context",
+		'const ratio = settings.return / Number(require("external-adapter"));',
+		["external-adapter"],
+	],
+	[
+		"interpolation regex is not division",
+		'const s = tag`${/require("external-adapter")/.test(s)}`;',
+		[],
+	],
+	[
+		"backslash line continuation in specifier",
+		'import("no\\\n' + 'de:fs");',
+		["node:fs"],
+	],
+	[
+		"U+2028 ends line comments",
+		'// note\u2028import "missing-package";',
+		["missing-package"],
+	],
+	[
+		"clause continues on the next line",
+		'import { adapter }\nfrom "./adapter.js";',
+		["./adapter.js"],
 	],
 ];
 
