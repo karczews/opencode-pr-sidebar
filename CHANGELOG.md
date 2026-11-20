@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.4](https://github.com/karczews/opencode-pr-sidebar/compare/v0.1.3...v0.1.4) (2026-11-20)
+
+
+### Bug Fixes
+
+* **ci:** read node version from .nvmrc ([#28](https://github.com/karczews/opencode-pr-sidebar/issues/28)) ([0bfa7dd](https://github.com/karczews/opencode-pr-sidebar/commit/0bfa7ddebe92e302c40704a77d8485833fa53480))
+
 ## [0.1.3](https://github.com/karczews/opencode-pr-sidebar/compare/v0.1.2...v0.1.3) (2026-11-20)
 
 
