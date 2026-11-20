@@ -231,7 +231,7 @@ export default Plugin.define({
 							setExpanded((value) => !value);
 						}}
 					>
-						<text fg={theme().text.base}>{expanded() ? "v" : ">"}</text>
+						<text fg={theme().text.base}>{expanded() ? "▼" : "▶"}</text>
 						<text fg={theme().text.base}>
 							<b>Pull Request</b>
 						</text>

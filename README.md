@@ -26,7 +26,7 @@ contract lives in
 ```sh
 opencode plugin add github:karczews/opencode-pr-sidebar
 # pin a release tag if you prefer:
-opencode plugin add 'github:karczews/opencode-pr-sidebar#v0.1.2'
+opencode plugin add 'github:karczews/opencode-pr-sidebar#v0.1.3'
 ```
 <!-- x-release-please-end -->
 
@@ -58,7 +58,7 @@ notes.
 
    ```
    +-------------------------------------------+
-   | v Pull Request                            |
+   | ▼ Pull Request                            |
    | #42 Fix login  (hyperlink, click to open) |
    | feature -> main                           |
    | Open                                      |

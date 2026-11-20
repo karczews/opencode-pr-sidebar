@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.3](https://github.com/karczews/opencode-pr-sidebar/compare/v0.1.2...v0.1.3) (2026-11-20)
+
+
+### Bug Fixes
+
+* **pr-sidebar:** use triangle disclosure indicators ([#21](https://github.com/karczews/opencode-pr-sidebar/issues/21)) ([a268dd3](https://github.com/karczews/opencode-pr-sidebar/commit/a268dd3edc3c9576ff4276088b2e3029d98729ac))
+
 ## [0.1.2](https://github.com/karczews/opencode-pr-sidebar/compare/v0.1.1...v0.1.2) (2026-11-12)
 
 
