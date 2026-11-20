@@ -17,7 +17,7 @@ permissions:
   contents: read
 
 jobs:
-  # Render tests use OpenTUI, which needs node:ffi (added in Node 26.1.0),
+  # Render tests use OpenTUI, which needs node:ffi (>=26.4.0 per @opentui/core engines),
   # so each setup-node step reads the Node version from .nvmrc.
   check:
     name: check
