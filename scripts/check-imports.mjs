@@ -187,7 +187,9 @@ function decodeEscapes(raw) {
 //   so semicolon-less files do not hide later statements;
 // - only the first argument of `import(...)`/`require(...)` is read, and a
 //   quoted first argument counts only when the argument ends there —
-//   computed specifiers (`"./a" + suffix`) report as non-literal;
+//   computed specifiers (`"./a" + suffix`) report as non-literal, while
+//   paren groups around a literal are transparent, as in the AST
+//   (`import(("x"))`);
 // - `.`-qualified `import`/`require` and `function require(` declarations are
 //   not calls, and zero-argument calls record nothing;
 // - template-literal specifiers report as non-literal, matching the previous
@@ -262,7 +264,10 @@ export function runtimeSpecifiers(source) {
 	function skipTrivia() {
 		while (i < n) {
 			const c = source[i];
-			if (isSpaceChar(c) || c === "\r" || c === "\n") {
+			// All four line terminators are trivia here; the statement
+			// lookahead bounds them separately. U+2028/U+2029 matter as much
+			// as LF/CR: `import\u2028("x")` is a valid dynamic import.
+			if (isSpaceChar(c) || LINE_TERMINATORS.has(c)) {
 				i++;
 			} else if (c === "/" && source[i + 1] === "/") {
 				while (i < n && !LINE_TERMINATORS.has(source[i])) i++;
@@ -420,37 +425,53 @@ export function runtimeSpecifiers(source) {
 
 	// Reads just the first argument of `import(...)` / `require(...)` from the
 	// opening parenthesis. Returns the decoded specifier for a complete
-	// quoted argument, null for a non-literal one (computed or template), and
-	// undefined when the call has no arguments (nothing to record, matching
-	// the AST-based version).
+	// quoted argument (paren groups around it are transparent, as in the
+	// AST-based version: `import(("x"))`), null for a non-literal one
+	// (computed or template), and undefined when the call has no arguments
+	// (nothing to record, matching the AST-based version).
 	function readFirstArgument() {
-		// The consumed `(` counts as an open paren like any other, so the
-		// call's own `)` pops its own record instead of stealing the record
-		// of an enclosing control head: `if (require("x")) /re/.test(s)`.
+		// Every consumed `(` counts as an open paren like any other, so each
+		// `)` pops its own record instead of stealing the record of an
+		// enclosing control head: `if (require("x")) /re/.test(s)`.
 		parens.push("call");
 		i++;
 		skipTrivia();
+		let inner = 0;
+		while (source[i] === "(") {
+			parens.push("call");
+			inner++;
+			i++;
+			skipTrivia();
+		}
 		const c = source[i];
 		if (c === ")") {
-			return undefined;
+			return inner === 0 ? undefined : null;
 		}
-		if (c === "'" || c === '"') {
-			const lit = readQuoted();
-			if (!lit.ok) {
+		if (c !== "'" && c !== '"') {
+			return null;
+		}
+		const lit = readQuoted();
+		if (!lit.ok) {
+			return null;
+		}
+		// A leading quoted token is only the whole argument when the
+		// argument ends there: inner groups must close immediately and be
+		// followed by `,` or `)`. `import("./a" + suffix)` and
+		// `import(("a") + suffix)` are computed.
+		skipTrivia();
+		for (let k = 0; k < inner; k++) {
+			if (source[i] !== ")") {
 				return null;
 			}
-			// A leading quoted token is only the whole argument when the
-			// argument ends there; `import("./a" + suffix)` is computed.
-			const at = i;
+			parens.pop();
+			i++;
 			skipTrivia();
-			const next = source[i];
-			i = at;
-			if (next !== ")" && next !== ",") {
-				return null;
-			}
-			return lit.value;
 		}
-		return null;
+		const next = source[i];
+		if (next !== ")" && next !== ",") {
+			return null;
+		}
+		return lit.value;
 	}
 
 	function recordCall() {

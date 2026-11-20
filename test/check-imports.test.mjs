@@ -226,6 +226,36 @@ const CASES = [
 		'require\u1680("external-adapter");',
 		["external-adapter"],
 	],
+	[
+		"line separator before dynamic import parens",
+		'import\u2028("node:fs");',
+		["node:fs"],
+	],
+	[
+		"paragraph separator before require parens",
+		'const x = require\u2029("node:path");',
+		["node:path"],
+	],
+	[
+		"line separator before import clause",
+		'import\u2028{ A } from "node:fs";',
+		["node:fs"],
+	],
+	[
+		"parenthesized string specifier is transparent",
+		'import(("node:fs"));',
+		["node:fs"],
+	],
+	[
+		"parenthesized computed specifier is non-literal",
+		'import(("node:fs") + name);',
+		[null],
+	],
+	[
+		"parenthesized specifier with options argument",
+		'import(("node:fs"), { with: { type: "json" } });',
+		["node:fs"],
+	],
 ];
 
 test("import scanner extracts runtime specifiers", () => {
