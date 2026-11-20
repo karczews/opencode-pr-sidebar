@@ -45,6 +45,9 @@ const compiled = spawnSync(
 		"nodenext",
 		"--strict",
 		"--skipLibCheck",
+		"--types",
+		"node",
+		"--ignoreConfig",
 	],
 	{ cwd: root, stdio: "inherit" },
 );

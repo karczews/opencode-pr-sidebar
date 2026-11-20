@@ -158,6 +158,9 @@ async function compilePlugin(outDir) {
 			"nodenext",
 			"--strict",
 			"--skipLibCheck",
+			"--types",
+			"node",
+			"--ignoreConfig",
 		],
 		{ cwd: root },
 	);
