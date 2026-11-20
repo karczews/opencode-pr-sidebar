@@ -69,7 +69,7 @@
 		"@opencode/client": "2.3.0",
 		"@opencode/plugin": "2.2.6",
 		"@opencode/theme": "2.3.0",
-		"@opentui/core": "0.8.3",
+		"@opentui/core": "0.8.4",
 		"@opentui/solid": "0.8.3",
 		"@types/node": "26.6.6",
 		"solid-js": "1.9.19",
