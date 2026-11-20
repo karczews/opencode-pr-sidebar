@@ -126,9 +126,9 @@ const CASES = [
 	],
 	["zero-argument require records nothing", "require();", []],
 	[
-		"type-position import query is skipped",
+		"annotation import query fails closed",
 		'let x: import("./types").Foo;',
-		[],
+		["./types"],
 	],
 	[
 		"control-head regex is not division",
@@ -165,6 +165,51 @@ const CASES = [
 		"clause continues on the next line",
 		'import { adapter }\nfrom "./adapter.js";',
 		["./adapter.js"],
+	],
+	[
+		"typeof import in value position is a runtime call",
+		"const kind = typeof import(name);",
+		[null],
+	],
+	[
+		"ternary alternate import is a runtime call",
+		'const adapter = ready ? fallback : import("external-adapter");',
+		["external-adapter"],
+	],
+	[
+		"leading paren file does not crash",
+		'import { A } from "node:fs";\n(async () => {})();',
+		["node:fs"],
+	],
+	[
+		"call paren does not steal the control-head record",
+		'if (require("node:fs")) /require("external-adapter")/.test(text);',
+		["node:fs"],
+	],
+	[
+		"non-breaking space separates tokens",
+		'import\u00a0"missing-package";',
+		["missing-package"],
+	],
+	[
+		"clause continues across CRLF",
+		'import { adapter }\r\nfrom "./adapter.js";',
+		["./adapter.js"],
+	],
+	[
+		"spread is not property access",
+		'[...require("external-adapter")];',
+		["external-adapter"],
+	],
+	[
+		"for-of separator allows a regex",
+		'for (const match of /require("external-adapter")/.exec(text) ?? []) {}',
+		[],
+	],
+	[
+		"of as identifier keeps division",
+		'const of = 1;\nconst r = of / Number(require("external-adapter"));',
+		["external-adapter"],
 	],
 ];
 

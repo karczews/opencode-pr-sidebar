@@ -47,6 +47,8 @@ const KEYWORDS = new Set([
 ]);
 
 // A `/` directly after one of these starts a regex literal, not a division.
+// `of` is included because the scanner only marks it as a keyword inside a
+// `for(...of...)` head, where it is the separator.
 const REGEX_PRECEDING_KEYWORDS = new Set([
 	"await",
 	"case",
@@ -56,6 +58,7 @@ const REGEX_PRECEDING_KEYWORDS = new Set([
 	"in",
 	"instanceof",
 	"new",
+	"of",
 	"return",
 	"throw",
 	"typeof",
@@ -166,15 +169,19 @@ function decodeEscapes(raw) {
 }
 
 // Value-level module specifiers only: skips `import type`, `export type`,
-// type-position `import()` queries, comments, string and regex contents, and
-// records the first argument of dynamic `import()` / `require()`. Implemented
-// as a small lexer so it does not depend on the TypeScript compiler API,
-// which TS 7 (tsgo) removed; only the `tsc` CLI is used elsewhere, so this
-// script stays version-agnostic.
+// comments, string and regex contents, and records the first argument of
+// dynamic `import()` / `require()`. Implemented as a small lexer so it does
+// not depend on the TypeScript compiler API, which TS 7 (tsgo) removed; only
+// the `tsc` CLI is used elsewhere, so this script stays version-agnostic.
 //
 // Design invariants:
 // - the main loop never skips past a statement body, so `require()` /
 //   `import()` inside exported functions are still recorded;
+// - every call-shaped `import(...)` is recorded regardless of syntactic
+//   position — an `import()` query in a type annotation is a rare false
+//   positive, but suppressing any position would also suppress real runtime
+//   imports (`typeof import(name)`, ternary arms), the worse direction for
+//   a guard;
 // - the import/export lookahead never consumes past a line terminator at
 //   brace depth 0 (continuing only when the next line starts the specifier),
 //   so semicolon-less files do not hide later statements;
@@ -187,10 +194,8 @@ function decodeEscapes(raw) {
 //   AST behavior (only quoted strings counted).
 //
 // Known simplifications (none occur in this repo's sources): a class method
-// named `require` is read as a call; a dynamic `import()` directly after a
-// colon (`case` label, object key, ternary alternate) is treated as a
-// type-position query and skipped; a regex literal immediately after a binary
-// `+`/`-` is read as division.
+// named `require` is read as a call; a regex literal immediately after a
+// binary `+`/`-` is read as division.
 export function runtimeSpecifiers(source) {
 	const specifiers = [];
 	const n = source.length;
@@ -205,16 +210,34 @@ export function runtimeSpecifiers(source) {
 	// control-head paren yields "ctrl" so a following `/` is a regex.
 	const parens = [];
 
-	const isWordChar = (c) =>
-		(c >= "a" && c <= "z") ||
-		(c >= "A" && c <= "Z") ||
-		(c >= "0" && c <= "9") ||
-		c === "_" ||
-		c === "$" ||
-		// Non-ASCII text outside strings/comments is identifier or JSX
-		// text; keeping it inside words can never synthesize the ASCII
-		// trigger words, but does stop `prérequire` from splitting.
-		c.codePointAt(0) > 127;
+	const isWordChar = (c) => {
+		const cp = c.codePointAt(0);
+		if (cp < 128) {
+			return (
+				(c >= "a" && c <= "z") ||
+				(c >= "A" && c <= "Z") ||
+				(c >= "0" && c <= "9") ||
+				c === "_" ||
+				c === "$"
+			);
+		}
+		// Non-ASCII letters stay inside one word (so `prérequire` does not
+		// split into a bare `require`), but Unicode whitespace and line
+		// terminators separate tokens just like their ASCII counterparts.
+		if (
+			LINE_TERMINATORS.has(c) ||
+			c === "\ufeff" ||
+			c === "\u00a0" ||
+			c === "\u1680" ||
+			(cp >= 0x2000 && cp <= 0x200a) ||
+			c === "\u202f" ||
+			c === "\u205f" ||
+			c === "\u3000"
+		) {
+			return false;
+		}
+		return true;
+	};
 
 	function skipTrivia() {
 		while (i < n) {
@@ -390,6 +413,10 @@ export function runtimeSpecifiers(source) {
 	// undefined when the call has no arguments (nothing to record, matching
 	// the AST-based version).
 	function readFirstArgument() {
+		// The consumed `(` counts as an open paren like any other, so the
+		// call's own `)` pops its own record instead of stealing the record
+		// of an enclosing control head: `if (require("x")) /re/.test(s)`.
+		parens.push("call");
 		i++;
 		skipTrivia();
 		const c = source[i];
@@ -466,10 +493,33 @@ export function runtimeSpecifiers(source) {
 			const c = source[i];
 			if (LINE_TERMINATORS.has(c)) {
 				if (depth === 0) {
+					// A clause may continue on the next line with its
+					// specifier. Probe past the full terminator sequence
+					// (CRLF is one), spaces, and block comments; anything
+					// else ends the statement.
 					const at = i;
-					i++;
-					while (i < n && (source[i] === " " || source[i] === "\t")) i++;
-					const next = source[i];
+					if (c === "\r" && source[i + 1] === "\n") i += 2;
+					else i++;
+					let next;
+					for (;;) {
+						while (
+							i < n &&
+							(source[i] === " " ||
+								source[i] === "\t" ||
+								source[i] === "\u00a0")
+						) {
+							i++;
+						}
+						next = source[i];
+						if (next === "/" && source[i + 1] === "*") {
+							i += 2;
+							while (i < n && !(source[i] === "*" && source[i + 1] === "/"))
+								i++;
+							i += 2;
+							continue;
+						}
+						break;
+					}
 					const nextWord =
 						next !== undefined && isWordChar(next) ? peekWord() : "";
 					i = at;
@@ -661,9 +711,11 @@ export function runtimeSpecifiers(source) {
 			continue;
 		}
 		if (c === ")") {
+			// A file can open with `(`, so the record may be null (prev at
+			// file start); a control head is a recorded `kw:` token.
 			const record = parens.pop();
 			const closesControlHead =
-				record !== undefined &&
+				typeof record === "string" &&
 				record.startsWith("kw:") &&
 				CONTROL_HEAD_KEYWORDS.has(record.slice(3));
 			prev = closesControlHead ? "ctrl" : "punct:)";
@@ -709,6 +761,13 @@ export function runtimeSpecifiers(source) {
 			prev = "num";
 			continue;
 		}
+		if (c === "." && source[i + 1] === "." && source[i + 2] === ".") {
+			// Spread is not property access: `[...require("x")]` must keep
+			// scanning as a call.
+			i += 3;
+			prev = "punct:...";
+			continue;
+		}
 		if (c === "?" && source[i + 1] === ".") {
 			i += 2;
 			prev = "punct:.";
@@ -720,15 +779,18 @@ export function runtimeSpecifiers(source) {
 			// stays an operand, not the `return` keyword, and a property
 			// named `import`/`require` is never a call.
 			const isProperty = prev === "punct:.";
+			if (word === "of" && !isProperty) {
+				// Inside a `for` head, `of` is the separator, after which a
+				// `/` starts a regex. As a plain identifier it ends an
+				// operand, keeping division: `const of = 1; of / 2`.
+				const innermost = parens[parens.length - 1];
+				prev =
+					typeof innermost === "string" && innermost === "kw:for"
+						? "kw:of"
+						: "ident";
+				continue;
+			}
 			if (word === "import" && !isProperty) {
-				// Type-position queries (`x: import("./t").Foo`,
-				// `Foo<import("./t").T>`, `typeof import("./t")`) carry no
-				// runtime dependency. See the header for this heuristic's
-				// documented blind spots.
-				if (prev === "punct::" || prev === "punct:<" || prev === "kw:typeof") {
-					prev = "kw:import";
-					continue;
-				}
 				skipTrivia();
 				if (source[i] === "(") {
 					recordCall();
