@@ -41,7 +41,7 @@
 		"lint:commits": "node scripts/check-commits.mjs",
 		"check:audit": "node scripts/check-audit.mjs",
 		"typecheck": "tsc --noEmit",
-		"test": "node --test test/model.test.ts",
+		"test": "node --test test/model.test.ts test/check-imports.test.mjs",
 		"test:render": "node --conditions=browser --test test/test-render.test.mjs",
 		"check": "npm run fmt-check && npm run lint && npm run check:imports && npm run typecheck && npm run verify:dist && npm test && npm run test:register && npm run test:render",
 		"test:register": "node --conditions=browser --test test/tui-register.test.mjs",
