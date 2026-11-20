@@ -8,6 +8,13 @@ updates:
       default-days: 7
     commit-message:
       prefix: chore
+    groups:
+      opencode:
+        patterns:
+          - "@opencode/*"
+      opentui:
+        patterns:
+          - "@opentui/*"
   - package-ecosystem: github-actions
     directory: /
     schedule:
