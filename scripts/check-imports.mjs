@@ -239,19 +239,30 @@ export function runtimeSpecifiers(source) {
 		return true;
 	};
 
+	// ECMAScript whitespace beyond the ASCII set, shared by every trivia
+	// reader so `require\u1680("x")` separates tokens the same way a space
+	// would.
+	const isSpaceChar = (c) => {
+		const cp = c.codePointAt(0);
+		return (
+			c === " " ||
+			c === "\t" ||
+			c === "\f" ||
+			c === "\v" ||
+			c === "\u00a0" ||
+			c === "\ufeff" ||
+			c === "\u1680" ||
+			(cp >= 0x2000 && cp <= 0x200a) ||
+			c === "\u202f" ||
+			c === "\u205f" ||
+			c === "\u3000"
+		);
+	};
+
 	function skipTrivia() {
 		while (i < n) {
 			const c = source[i];
-			if (
-				c === " " ||
-				c === "\t" ||
-				c === "\r" ||
-				c === "\n" ||
-				c === "\f" ||
-				c === "\v" ||
-				c === "\u00a0" ||
-				c === "\ufeff"
-			) {
+			if (isSpaceChar(c) || c === "\r" || c === "\n") {
 				i++;
 			} else if (c === "/" && source[i + 1] === "/") {
 				while (i < n && !LINE_TERMINATORS.has(source[i])) i++;
@@ -502,12 +513,7 @@ export function runtimeSpecifiers(source) {
 					else i++;
 					let next;
 					for (;;) {
-						while (
-							i < n &&
-							(source[i] === " " ||
-								source[i] === "\t" ||
-								source[i] === "\u00a0")
-						) {
+						while (i < n && isSpaceChar(source[i])) {
 							i++;
 						}
 						next = source[i];
@@ -532,13 +538,7 @@ export function runtimeSpecifiers(source) {
 				i++;
 				continue;
 			}
-			if (
-				c === " " ||
-				c === "\t" ||
-				c === "\f" ||
-				c === "\v" ||
-				c === "\u00a0"
-			) {
+			if (isSpaceChar(c)) {
 				i++;
 				continue;
 			}
@@ -633,17 +633,50 @@ export function runtimeSpecifiers(source) {
 		return typeOnly;
 	}
 
+	// Positioned just after an `of` token inside an open `for` head: a
+	// semicolon at head level before the closing `)` makes it a classic
+	// `for (;;)` head, where `of` is an ordinary identifier.
+	function forHeadIsClassic() {
+		const save = i;
+		let depth = 0;
+		let classic = false;
+		while (i < n) {
+			const c = source[i];
+			if (c === "'" || c === '"') {
+				readQuoted();
+			} else if (c === "`") {
+				skipTemplateAtom();
+			} else if (c === "/" && source[i + 1] === "/") {
+				while (i < n && !LINE_TERMINATORS.has(source[i])) i++;
+			} else if (c === "/" && source[i + 1] === "*") {
+				i += 2;
+				while (i < n && !(source[i] === "*" && source[i + 1] === "/")) i++;
+				i += 2;
+			} else if (c === "(" || c === "[" || c === "{") {
+				depth++;
+				i++;
+			} else if (c === ")" && depth === 0) {
+				break;
+			} else if (c === ")" || c === "]" || c === "}") {
+				depth--;
+				i++;
+			} else if (c === ";" && depth === 0) {
+				classic = true;
+				break;
+			} else {
+				i++;
+			}
+		}
+		i = save;
+		return classic;
+	}
+
 	while (i < n) {
 		const c = source[i];
 		if (
-			c === " " ||
-			c === "\t" ||
+			isSpaceChar(c) ||
 			c === "\r" ||
 			c === "\n" ||
-			c === "\f" ||
-			c === "\v" ||
-			c === "\u00a0" ||
-			c === "\ufeff" ||
 			c === "\u2028" ||
 			c === "\u2029"
 		) {
@@ -780,14 +813,16 @@ export function runtimeSpecifiers(source) {
 			// named `import`/`require` is never a call.
 			const isProperty = prev === "punct:.";
 			if (word === "of" && !isProperty) {
-				// Inside a `for` head, `of` is the separator, after which a
-				// `/` starts a regex. As a plain identifier it ends an
-				// operand, keeping division: `const of = 1; of / 2`.
+				// `of` is the for-of separator — after which a `/` starts a
+				// regex — only in a head without semicolons. In a classic
+				// `for (n = of / 2; ...)` head it is an identifier ending
+				// an operand, keeping division.
 				const innermost = parens[parens.length - 1];
-				prev =
-					typeof innermost === "string" && innermost === "kw:for"
-						? "kw:of"
-						: "ident";
+				const inForOfHead =
+					typeof innermost === "string" &&
+					innermost === "kw:for" &&
+					!forHeadIsClassic();
+				prev = inForOfHead ? "kw:of" : "ident";
 				continue;
 			}
 			if (word === "import" && !isProperty) {

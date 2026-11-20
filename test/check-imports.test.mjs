@@ -178,7 +178,7 @@ const CASES = [
 	],
 	[
 		"leading paren file does not crash",
-		'import { A } from "node:fs";\n(async () => {})();',
+		'(async () => {})();\nimport { A } from "node:fs";',
 		["node:fs"],
 	],
 	[
@@ -209,6 +209,16 @@ const CASES = [
 	[
 		"of as identifier keeps division",
 		'const of = 1;\nconst r = of / Number(require("external-adapter"));',
+		["external-adapter"],
+	],
+	[
+		"classic for head keeps division",
+		'const of = 10;\nfor (let n = of / Number(require("external-adapter")); n > 0; n--) {}',
+		["external-adapter"],
+	],
+	[
+		"ogham space separates tokens",
+		'require\u1680("external-adapter");',
 		["external-adapter"],
 	],
 ];
