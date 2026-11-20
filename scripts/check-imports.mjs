@@ -633,44 +633,6 @@ export function runtimeSpecifiers(source) {
 		return typeOnly;
 	}
 
-	// Positioned just after an `of` token inside an open `for` head: a
-	// semicolon at head level before the closing `)` makes it a classic
-	// `for (;;)` head, where `of` is an ordinary identifier.
-	function forHeadIsClassic() {
-		const save = i;
-		let depth = 0;
-		let classic = false;
-		while (i < n) {
-			const c = source[i];
-			if (c === "'" || c === '"') {
-				readQuoted();
-			} else if (c === "`") {
-				skipTemplateAtom();
-			} else if (c === "/" && source[i + 1] === "/") {
-				while (i < n && !LINE_TERMINATORS.has(source[i])) i++;
-			} else if (c === "/" && source[i + 1] === "*") {
-				i += 2;
-				while (i < n && !(source[i] === "*" && source[i + 1] === "/")) i++;
-				i += 2;
-			} else if (c === "(" || c === "[" || c === "{") {
-				depth++;
-				i++;
-			} else if (c === ")" && depth === 0) {
-				break;
-			} else if (c === ")" || c === "]" || c === "}") {
-				depth--;
-				i++;
-			} else if (c === ";" && depth === 0) {
-				classic = true;
-				break;
-			} else {
-				i++;
-			}
-		}
-		i = save;
-		return classic;
-	}
-
 	while (i < n) {
 		const c = source[i];
 		if (
@@ -814,14 +776,16 @@ export function runtimeSpecifiers(source) {
 			const isProperty = prev === "punct:.";
 			if (word === "of" && !isProperty) {
 				// `of` is the for-of separator — after which a `/` starts a
-				// regex — only in a head without semicolons. In a classic
-				// `for (n = of / 2; ...)` head it is an identifier ending
-				// an operand, keeping division.
+				// regex — only inside a `for` head and only when it
+				// directly follows a binding (identifier or pattern close):
+				// `for (const m of /re/...)`. After `=`, `;`, `(`, or a
+				// comma it is an ordinary identifier in a classic head,
+				// keeping division: `for (let n = of / 2;;)`.
 				const innermost = parens[parens.length - 1];
 				const inForOfHead =
 					typeof innermost === "string" &&
 					innermost === "kw:for" &&
-					!forHeadIsClassic();
+					(prev === "ident" || prev === "punct:]" || prev === "punct:}");
 				prev = inForOfHead ? "kw:of" : "ident";
 				continue;
 			}

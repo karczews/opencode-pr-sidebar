@@ -207,6 +207,11 @@ const CASES = [
 		[],
 	],
 	[
+		"regex with semicolon and quote in for-of head hides nothing",
+		'for (const match of /;"/.exec(text) ?? []) {}\nimport "missing-package";',
+		["missing-package"],
+	],
+	[
 		"of as identifier keeps division",
 		'const of = 1;\nconst r = of / Number(require("external-adapter"));',
 		["external-adapter"],
