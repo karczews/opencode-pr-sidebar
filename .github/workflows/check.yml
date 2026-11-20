@@ -17,8 +17,8 @@ permissions:
   contents: read
 
 jobs:
-  # Render tests use OpenTUI, which needs node:ffi (added in Node 26.1.0),
-  # so all jobs run Node 26.
+  # Render tests use OpenTUI, which needs node:ffi (>=26.4.0 per @opentui/core engines),
+  # so each setup-node step reads the Node version from .nvmrc.
   check:
     name: check
     runs-on: ubuntu-latest
@@ -31,7 +31,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: 26
+          node-version-file: .nvmrc
           cache: npm
 
       - name: Install dependencies
@@ -52,7 +52,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: 26
+          node-version-file: .nvmrc
 
       - name: Audit production dependencies
         run: npm run check:audit
@@ -109,7 +109,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: 26
+          node-version-file: .nvmrc
 
       - name: Lint commit messages
         run: |
