@@ -30,24 +30,17 @@ for (const [bare, virtual] of runtimeModules) {
 mkdirSync(dist, { recursive: true });
 writeFileSync(join(dist, "tui.js"), output);
 
+// Compiles model.ts to dist via tsconfig.dist.json. TS 7 errors when a
+// file-based invocation would silently ignore a discovered tsconfig
+// (TS5112), so the build owns a dedicated project config instead: the
+// settings are reviewed JSON, and `types: node` keeps the ambient Node
+// declarations the root typecheck tsconfig provides.
 const compiled = spawnSync(
 	process.execPath,
 	[
 		join(root, "node_modules", "typescript", "bin", "tsc"),
-		"model.ts",
-		"--outDir",
-		"dist",
-		"--module",
-		"nodenext",
-		"--target",
-		"es2022",
-		"--moduleResolution",
-		"nodenext",
-		"--strict",
-		"--skipLibCheck",
-		"--types",
-		"node",
-		"--ignoreConfig",
+		"-p",
+		"tsconfig.dist.json",
 	],
 	{ cwd: root, stdio: "inherit" },
 );
