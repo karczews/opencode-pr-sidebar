@@ -256,6 +256,16 @@ const CASES = [
 		'import(("node:fs"), { with: { type: "json" } });',
 		["node:fs"],
 	],
+	[
+		"for-await head allows a regex",
+		'for await (const m of /require("external-adapter")/.exec(text) ?? []) {}',
+		[],
+	],
+	[
+		"for-await head records runtime imports after the loop",
+		'for await (const m of items) {}\nrequire("node:path");',
+		["node:path"],
+	],
 ];
 
 test("import scanner extracts runtime specifiers", () => {

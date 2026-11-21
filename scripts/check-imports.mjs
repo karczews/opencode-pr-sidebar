@@ -795,6 +795,12 @@ export function runtimeSpecifiers(source) {
 			// stays an operand, not the `return` keyword, and a property
 			// named `import`/`require` is never a call.
 			const isProperty = prev === "punct:.";
+			if (word === "await" && prev === "kw:for") {
+				// `for await (` opens one loop head: keep the `for` marker so
+				// the following paren records it, instead of a standalone
+				// `await` expression whose `of` would read as division.
+				continue;
+			}
 			if (word === "of" && !isProperty) {
 				// `of` is the for-of separator — after which a `/` starts a
 				// regex — only inside a `for` head and only when it
