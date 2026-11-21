@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.5](https://github.com/karczews/opencode-pr-sidebar/compare/v0.1.4...v0.1.5) (2026-11-21)
+
+
+### Bug Fixes
+
+* **build:** support typescript 7 native compiler ([#36](https://github.com/karczews/opencode-pr-sidebar/issues/36)) ([d9a30d5](https://github.com/karczews/opencode-pr-sidebar/commit/d9a30d54e56dce2a1b45f084a3f36872185fff1e))
+
 ## [0.1.4](https://github.com/karczews/opencode-pr-sidebar/compare/v0.1.3...v0.1.4) (2026-11-20)
 
 
