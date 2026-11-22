@@ -23,11 +23,13 @@ contract lives in
 
 ### From npm (recommended)
 
+<!-- x-release-please-start-version -->
 ```sh
 opencode plugin add opencode2-pr-sidebar
 # pin a published version if you prefer:
-opencode plugin add opencode2-pr-sidebar@<version>
+opencode plugin add opencode2-pr-sidebar@0.2.0
 ```
+<!-- x-release-please-end -->
 
 Update later with `opencode plugin update opencode2-pr-sidebar`.
 
