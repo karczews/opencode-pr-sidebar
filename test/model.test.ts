@@ -18,6 +18,7 @@ import {
 	openBrowser,
 	parseCounts,
 	parsePRView,
+	type RunOptions,
 	run,
 	type Snapshot,
 	splitPRUrl,
@@ -28,12 +29,10 @@ import {
 } from "../model.ts";
 
 test("run resolves with stdout", async () => {
-	const out = await run(
-		process.execPath,
-		["-e", "process.stdout.write('hi')"],
-		process.cwd(),
-		new AbortController().signal,
-	);
+	const out = await run(process.execPath, ["-e", "process.stdout.write('hi')"], {
+		cwd: process.cwd(),
+		signal: new AbortController().signal,
+	});
 	assert.equal(out, "hi");
 });
 
@@ -43,8 +42,10 @@ test("run scrubs repository-selecting env vars", async () => {
 		const out = await run(
 			process.execPath,
 			["-e", "process.stdout.write(process.env.GH_REPO ?? 'unset')"],
-			process.cwd(),
-			new AbortController().signal,
+			{
+				cwd: process.cwd(),
+				signal: new AbortController().signal,
+			},
 		);
 		assert.equal(out, "unset");
 	} finally {
@@ -54,20 +55,20 @@ test("run scrubs repository-selecting env vars", async () => {
 
 test("run rejects on timeout", async () => {
 	await assert.rejects(
-		run(
-			process.execPath,
-			["-e", "setTimeout(() => {}, 5000)"],
-			process.cwd(),
-			new AbortController().signal,
-			undefined,
-			100,
-		),
+		run(process.execPath, ["-e", "setTimeout(() => {}, 5000)"], {
+			cwd: process.cwd(),
+			signal: new AbortController().signal,
+			timeoutMs: 100,
+		}),
 	);
 });
 
 test("run rejects on missing binary", async () => {
 	await assert.rejects(
-		run("pr-sidebar-definitely-missing-binary", [], process.cwd(), new AbortController().signal),
+		run("pr-sidebar-definitely-missing-binary", [], {
+			cwd: process.cwd(),
+			signal: new AbortController().signal,
+		}),
 	);
 });
 
@@ -186,8 +187,8 @@ test("parseCounts rejects malformed payloads", () => {
 });
 
 test("countsQuery validates the PR number", () => {
-	assert.throws(() => countsQuery("o", "r", 0));
-	const query = countsQuery("o", "r", 42);
+	assert.throws(() => countsQuery({ owner: "o", repo: "r", number: 0 }));
+	const query = countsQuery({ owner: "o", repo: "r", number: 42 });
 	assert.match(query, /pullRequest\(number: 42\)/);
 });
 
@@ -199,7 +200,7 @@ test("fetch helpers use the locked argv shapes", async () => {
 	};
 	const signal = new AbortController().signal;
 	await fetchPRView("/repo", signal, execute);
-	await fetchCounts("o", "r", 7, "/repo", signal, execute);
+	await fetchCounts({ owner: "o", repo: "r", number: 7 }, "/repo", signal, execute);
 	assert.equal(calls.length, 2);
 	const prView = calls[0];
 	const counts = calls[1];
@@ -561,12 +562,12 @@ test("monitor discards in-flight responses on branch change and stop", async () 
 			publish: (value) => {
 				states.push(value);
 			},
-			execute: (async (file: string, args: string[], _cwd: string) => {
+			execute: (async (file: string, args: string[], { cwd }: RunOptions) => {
 				if (args.includes("graphql")) {
 					return monitorCounts();
 				}
 				if (file === "git") {
-					return `${_cwd}\n${branch}\n`;
+					return `${cwd}\n${branch}\n`;
 				}
 				return new Promise<string>((resolve) => {
 					waiting.push({ resolve });
@@ -651,9 +652,13 @@ test("openBrowser launches the platform launcher with the full URL", async () =>
 		const message = await openBrowser("https://github.com/o/r/pull/1", "/repo", signal, {
 			platform,
 			env,
-			execute: async (...args) => {
+			execute: async (...call) => {
 				calls++;
-				assert.deepEqual(args, [launcher, ["https://github.com/o/r/pull/1"], "/repo", signal]);
+				assert.deepEqual(call, [
+					launcher,
+					["https://github.com/o/r/pull/1"],
+					{ cwd: "/repo", signal },
+				]);
 				return "";
 			},
 		});
@@ -711,7 +716,7 @@ test("copyToClipboard uses the platform clipboard and reports failure", async ()
 		const ok = await copyToClipboard("https://github.com/o/r/pull/1", "/repo", signal, {
 			platform,
 			env,
-			execute: async (f, a, cwd, sig, input) => {
+			execute: async (f, a, { cwd, signal: sig, input }) => {
 				seen = true;
 				assert.equal(f, file);
 				assert.deepEqual(a, args);

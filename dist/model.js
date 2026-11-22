@@ -37,7 +37,7 @@ const REPO_ENV_KEYS = [
     "GIT_COMMON_DIR",
     "GIT_INDEX_FILE",
 ];
-export function run(file, args, cwd, signal, input, timeoutMs = 15_000) {
+export function run(file, args, { cwd, signal, input, timeoutMs = 15_000 }) {
     return new Promise((resolve, reject) => {
         const env = {
             ...process.env,
@@ -63,7 +63,10 @@ export function run(file, args, cwd, signal, input, timeoutMs = 15_000) {
 }
 export async function detectRepo(directory, signal, execute = run) {
     try {
-        const out = await execute("git", ["rev-parse", "--show-toplevel", "--abbrev-ref", "HEAD"], directory, signal);
+        const out = await execute("git", ["rev-parse", "--show-toplevel", "--abbrev-ref", "HEAD"], {
+            cwd: directory,
+            signal,
+        });
         const [root, branch] = out.trim().split("\n");
         if (!root || !branch) {
             return null;
@@ -75,16 +78,19 @@ export async function detectRepo(directory, signal, execute = run) {
     }
 }
 export async function fetchPRView(directory, signal, execute = run) {
-    return execute("gh", ["pr", "view", "--json", PR_VIEW_FIELDS], directory, signal);
+    return execute("gh", ["pr", "view", "--json", PR_VIEW_FIELDS], { cwd: directory, signal });
 }
-export function countsQuery(owner, repo, number) {
-    if (!Number.isInteger(number) || number < 1) {
+export function countsQuery(ref) {
+    if (!Number.isInteger(ref.number) || ref.number < 1) {
         throw new Error("Invalid PR number");
     }
-    return `query { repository(owner: ${JSON.stringify(owner)}, name: ${JSON.stringify(repo)}) { pullRequest(number: ${number}) { comments(first: 1) { totalCount } reviews(first: 1) { totalCount } reviewThreads(first: 100) { totalCount nodes { isResolved } } } } }`;
+    return `query { repository(owner: ${JSON.stringify(ref.owner)}, name: ${JSON.stringify(ref.repo)}) { pullRequest(number: ${ref.number}) { comments(first: 1) { totalCount } reviews(first: 1) { totalCount } reviewThreads(first: 100) { totalCount nodes { isResolved } } } } }`;
 }
-export async function fetchCounts(owner, repo, number, directory, signal, execute = run) {
-    return execute("gh", ["api", "graphql", "-f", `query=${countsQuery(owner, repo, number)}`], directory, signal);
+export async function fetchCounts(ref, directory, signal, execute = run) {
+    return execute("gh", ["api", "graphql", "-f", `query=${countsQuery(ref)}`], {
+        cwd: directory,
+        signal,
+    });
 }
 function isRecord(value) {
     return typeof value === "object" && value !== null;
@@ -518,8 +524,7 @@ export function createMonitor({ directory, publish, execute = run, now = Date.no
                 emit({ pr: null, error: "", fetchedAt: now() });
                 return;
             }
-            const parts = splitPRUrl(parsed.url);
-            const countsText = await fetchCounts(parts.owner, parts.repo, parsed.number, cwd, abort.signal, execute);
+            const countsText = await fetchCounts(splitPRUrl(parsed.url), cwd, abort.signal, execute);
             if (isStale(expected, cwd, abort.signal)) {
                 return;
             }
@@ -583,7 +588,7 @@ export async function openBrowser(url, cwd, signal, { env = process.env, platfor
         return "Browser opening is unavailable here. Open the URL below in your browser.";
     }
     try {
-        await execute(launcher, [url], cwd, signal);
+        await execute(launcher, [url], { cwd, signal });
     }
     catch {
         if (!signal.aborted) {
@@ -610,7 +615,7 @@ export async function copyToClipboard(text, cwd, signal, { env = process.env, pl
     }
     const command = clipboardCommand(platform, env);
     try {
-        await execute(command.file, command.args, cwd, signal, text);
+        await execute(command.file, command.args, { cwd, signal, input: text });
         return !signal.aborted;
     }
     catch {

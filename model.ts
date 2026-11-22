@@ -78,13 +78,17 @@ const REPO_ENV_KEYS = [
 	"GIT_INDEX_FILE",
 ] as const;
 
+export type RunOptions = {
+	cwd: string;
+	signal: AbortSignal;
+	input?: string;
+	timeoutMs?: number;
+};
+
 export function run(
 	file: string,
 	args: string[],
-	cwd: string,
-	signal: AbortSignal,
-	input?: string,
-	timeoutMs = 15_000,
+	{ cwd, signal, input, timeoutMs = 15_000 }: RunOptions,
 ): Promise<string> {
 	return new Promise((resolve, reject) => {
 		const env: NodeJS.ProcessEnv = {
@@ -122,12 +126,10 @@ export async function detectRepo(
 	execute: Execute = run,
 ): Promise<{ root: string; branch: string } | null> {
 	try {
-		const out = await execute(
-			"git",
-			["rev-parse", "--show-toplevel", "--abbrev-ref", "HEAD"],
-			directory,
+		const out = await execute("git", ["rev-parse", "--show-toplevel", "--abbrev-ref", "HEAD"], {
+			cwd: directory,
 			signal,
-		);
+		});
 		const [root, branch] = out.trim().split("\n");
 		if (!root || !branch) {
 			return null;
@@ -143,30 +145,26 @@ export async function fetchPRView(
 	signal: AbortSignal,
 	execute: Execute = run,
 ): Promise<string> {
-	return execute("gh", ["pr", "view", "--json", PR_VIEW_FIELDS], directory, signal);
+	return execute("gh", ["pr", "view", "--json", PR_VIEW_FIELDS], { cwd: directory, signal });
 }
 
-export function countsQuery(owner: string, repo: string, number: number): string {
-	if (!Number.isInteger(number) || number < 1) {
+export function countsQuery(ref: PRRef): string {
+	if (!Number.isInteger(ref.number) || ref.number < 1) {
 		throw new Error("Invalid PR number");
 	}
-	return `query { repository(owner: ${JSON.stringify(owner)}, name: ${JSON.stringify(repo)}) { pullRequest(number: ${number}) { comments(first: 1) { totalCount } reviews(first: 1) { totalCount } reviewThreads(first: 100) { totalCount nodes { isResolved } } } } }`;
+	return `query { repository(owner: ${JSON.stringify(ref.owner)}, name: ${JSON.stringify(ref.repo)}) { pullRequest(number: ${ref.number}) { comments(first: 1) { totalCount } reviews(first: 1) { totalCount } reviewThreads(first: 100) { totalCount nodes { isResolved } } } } }`;
 }
 
 export async function fetchCounts(
-	owner: string,
-	repo: string,
-	number: number,
+	ref: PRRef,
 	directory: string,
 	signal: AbortSignal,
 	execute: Execute = run,
 ): Promise<string> {
-	return execute(
-		"gh",
-		["api", "graphql", "-f", `query=${countsQuery(owner, repo, number)}`],
-		directory,
+	return execute("gh", ["api", "graphql", "-f", `query=${countsQuery(ref)}`], {
+		cwd: directory,
 		signal,
-	);
+	});
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -206,11 +204,13 @@ export function clean(value: unknown): string {
 	);
 }
 
-export function splitPRUrl(url: string): {
+export type PRRef = {
 	owner: string;
 	repo: string;
 	number: number;
-} {
+};
+
+export function splitPRUrl(url: string): PRRef {
 	const parsed = new URL(url);
 	if (parsed.protocol !== "https:" || parsed.username || parsed.password) {
 		throw new Error("Invalid PR URL");
@@ -679,15 +679,7 @@ export function createMonitor({
 				emit({ pr: null, error: "", fetchedAt: now() });
 				return;
 			}
-			const parts = splitPRUrl(parsed.url);
-			const countsText = await fetchCounts(
-				parts.owner,
-				parts.repo,
-				parsed.number,
-				cwd,
-				abort.signal,
-				execute,
-			);
+			const countsText = await fetchCounts(splitPRUrl(parsed.url), cwd, abort.signal, execute);
 			if (isStale(expected, cwd, abort.signal)) {
 				return;
 			}
@@ -762,7 +754,7 @@ export async function openBrowser(
 		return "Browser opening is unavailable here. Open the URL below in your browser.";
 	}
 	try {
-		await execute(launcher, [url], cwd, signal);
+		await execute(launcher, [url], { cwd, signal });
 	} catch {
 		if (!signal.aborted) {
 			return "Could not launch a browser. Open the URL below in your browser.";
@@ -798,7 +790,7 @@ export async function copyToClipboard(
 	}
 	const command = clipboardCommand(platform, env);
 	try {
-		await execute(command.file, command.args, cwd, signal, text);
+		await execute(command.file, command.args, { cwd, signal, input: text });
 		return !signal.aborted;
 	} catch {
 		return false;
