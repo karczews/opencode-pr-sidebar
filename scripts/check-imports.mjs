@@ -11,13 +11,7 @@ import { pathToFileURL } from "node:url";
 // re-exports are erased at compile time and need no runtime package, so they
 // are skipped. See docs/plugin-distribution.md.
 const SRC_ENTRIES = ["tui.tsx", "model.ts"];
-const SRC_ALLOW = [
-	/^\.\.?\//,
-	/^node:/,
-	/^solid-js$/,
-	/^@opentui\//,
-	/^@opencode\/plugin\//,
-];
+const SRC_ALLOW = [/^\.\.?\//, /^node:/, /^solid-js$/, /^@opentui\//, /^@opencode\/plugin\//];
 const DIST_ALLOW = [/^\.\.?\//, /^node:/, /^opentui:runtime-module:/];
 
 const KEYWORDS = new Set([
@@ -70,27 +64,12 @@ const REGEX_PRECEDING_KEYWORDS = new Set([
 // of a module specifier. Applied to the first token only: `export * as
 // default from "m"` uses `default` as a name, and `import async from "m"`
 // uses `async` as one.
-const EXPORT_STOP_WORDS = new Set([
-	"async",
-	"class",
-	"const",
-	"default",
-	"function",
-	"let",
-	"var",
-]);
+const EXPORT_STOP_WORDS = new Set(["async", "class", "const", "default", "function", "let", "var"]);
 
 // A `)` closing the parenthesized head of one of these is followed by a
 // statement, where a `/` starts a regex: `if (x) /re/.test(s)`. A `)` in
 // expression position keeps division: `(total) / divisor`.
-const CONTROL_HEAD_KEYWORDS = new Set([
-	"if",
-	"while",
-	"for",
-	"switch",
-	"catch",
-	"with",
-]);
+const CONTROL_HEAD_KEYWORDS = new Set(["if", "while", "for", "switch", "catch", "with"]);
 
 // JavaScript line terminators. `//` comments end at any of these, and the
 // statement lookahead treats all of them as line bounds.
@@ -540,15 +519,13 @@ export function runtimeSpecifiers(source) {
 						next = source[i];
 						if (next === "/" && source[i + 1] === "*") {
 							i += 2;
-							while (i < n && !(source[i] === "*" && source[i + 1] === "/"))
-								i++;
+							while (i < n && !(source[i] === "*" && source[i + 1] === "/")) i++;
 							i += 2;
 							continue;
 						}
 						break;
 					}
-					const nextWord =
-						next !== undefined && isWordChar(next) ? peekWord() : "";
+					const nextWord = next !== undefined && isWordChar(next) ? peekWord() : "";
 					i = at;
 					if (nextWord === "from" || next === "'" || next === '"') {
 						i++;
@@ -581,8 +558,7 @@ export function runtimeSpecifiers(source) {
 					first = false;
 					continue;
 				}
-				const sideEffect =
-					first && keyword === "import" && !sawFrom && depth === 0;
+				const sideEffect = first && keyword === "import" && !sawFrom && depth === 0;
 				if (sideEffect || (sawFrom && depth === 0)) {
 					const lit = readQuoted();
 					const value = lit.ok ? lit.value : null;
@@ -656,13 +632,7 @@ export function runtimeSpecifiers(source) {
 
 	while (i < n) {
 		const c = source[i];
-		if (
-			isSpaceChar(c) ||
-			c === "\r" ||
-			c === "\n" ||
-			c === "\u2028" ||
-			c === "\u2029"
-		) {
+		if (isSpaceChar(c) || c === "\r" || c === "\n" || c === "\u2028" || c === "\u2029") {
 			i++;
 			continue;
 		}
@@ -769,10 +739,7 @@ export function runtimeSpecifiers(source) {
 			}
 			continue;
 		}
-		if (
-			(c >= "0" && c <= "9") ||
-			(c === "." && /[0-9]/.test(source[i + 1] ?? ""))
-		) {
+		if ((c >= "0" && c <= "9") || (c === "." && /[0-9]/.test(source[i + 1] ?? ""))) {
 			skipNumberAtom();
 			prev = "num";
 			continue;
@@ -917,9 +884,7 @@ function collectTargets(shipped) {
 	// dist targets come from package.json `files`, not just the directory
 	// listing, so a missing or renamed build output fails instead of
 	// passing silently. Extra .js files on disk are scanned too.
-	const distFiles = new Set(
-		[...shipped].filter((f) => f.startsWith("dist/") && f.endsWith(".js")),
-	);
+	const distFiles = new Set([...shipped].filter((f) => f.startsWith("dist/") && f.endsWith(".js")));
 	if (existsSync("dist")) {
 		for (const entry of readdirSync("dist")) {
 			if (entry.endsWith(".js")) {
@@ -956,18 +921,14 @@ function main() {
 				continue;
 			}
 			if (!allowed.some((pattern) => pattern.test(specifier))) {
-				console.error(
-					`${file}: disallowed import ${JSON.stringify(specifier)}`,
-				);
+				console.error(`${file}: disallowed import ${JSON.stringify(specifier)}`);
 				failed = true;
 				continue;
 			}
 			if (specifier.startsWith(".")) {
 				const resolved = resolveRelative(file, specifier);
 				if (resolved === null) {
-					console.error(
-						`${file}: unresolved relative import ${JSON.stringify(specifier)}`,
-					);
+					console.error(`${file}: unresolved relative import ${JSON.stringify(specifier)}`);
 					failed = true;
 				} else if (dist && !shipped.has(resolved)) {
 					console.error(
@@ -985,17 +946,13 @@ function main() {
 		);
 		process.exit(1);
 	}
-	console.log(
-		`check-imports ok (${targets.map(({ file }) => file).join(", ")})`,
-	);
+	console.log(`check-imports ok (${targets.map(({ file }) => file).join(", ")})`);
 }
 
 // import.meta.main is symlink-safe; the argv comparison covers runtimes
 // where it is not yet defined. Either way, importing the scanner from the
 // test suite leaves main() idle.
-const isMain =
-	import.meta.main ??
-	import.meta.url === pathToFileURL(process.argv[1] ?? "").href;
+const isMain = import.meta.main ?? import.meta.url === pathToFileURL(process.argv[1] ?? "").href;
 if (isMain) {
 	main();
 }

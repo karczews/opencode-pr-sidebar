@@ -64,12 +64,7 @@ test("run rejects on timeout", async () => {
 
 test("run rejects on missing binary", async () => {
 	await assert.rejects(
-		run(
-			"pr-sidebar-definitely-missing-binary",
-			[],
-			process.cwd(),
-			new AbortController().signal,
-		),
+		run("pr-sidebar-definitely-missing-binary", [], process.cwd(), new AbortController().signal),
 	);
 });
 
@@ -92,9 +87,7 @@ const prViewBase = {
 };
 
 test("parsePRView accepts a valid payload and normalizes lenient fields", () => {
-	const pr = parsePRView(
-		JSON.stringify({ ...prViewBase, reviewDecision: null }),
-	);
+	const pr = parsePRView(JSON.stringify({ ...prViewBase, reviewDecision: null }));
 	assert.equal(pr.number, 42);
 	assert.equal(pr.state, "OPEN");
 	assert.equal(pr.reviewDecision, "");
@@ -104,21 +97,11 @@ test("parsePRView accepts a valid payload and normalizes lenient fields", () => 
 test("parsePRView rejects malformed payloads", () => {
 	assert.throws(() => parsePRView("not json"));
 	assert.throws(() => parsePRView(JSON.stringify(null)));
-	assert.throws(() =>
-		parsePRView(JSON.stringify({ ...prViewBase, number: 0 })),
-	);
-	assert.throws(() =>
-		parsePRView(JSON.stringify({ ...prViewBase, state: "DRAFT" })),
-	);
-	assert.throws(() =>
-		parsePRView(JSON.stringify({ ...prViewBase, isDraft: "no" })),
-	);
-	assert.throws(() =>
-		parsePRView(JSON.stringify({ ...prViewBase, additions: -1 })),
-	);
-	assert.throws(() =>
-		parsePRView(JSON.stringify({ ...prViewBase, statusCheckRollup: null })),
-	);
+	assert.throws(() => parsePRView(JSON.stringify({ ...prViewBase, number: 0 })));
+	assert.throws(() => parsePRView(JSON.stringify({ ...prViewBase, state: "DRAFT" })));
+	assert.throws(() => parsePRView(JSON.stringify({ ...prViewBase, isDraft: "no" })));
+	assert.throws(() => parsePRView(JSON.stringify({ ...prViewBase, additions: -1 })));
+	assert.throws(() => parsePRView(JSON.stringify({ ...prViewBase, statusCheckRollup: null })));
 	assert.throws(() =>
 		parsePRView(
 			JSON.stringify({
@@ -131,9 +114,7 @@ test("parsePRView rejects malformed payloads", () => {
 
 test("splitPRUrl rejects non-PR URLs", () => {
 	assert.throws(() => splitPRUrl("javascript:alert(1)"));
-	assert.throws(() =>
-		splitPRUrl("https://user:pass@github.com/owner/repo/pull/1"),
-	);
+	assert.throws(() => splitPRUrl("https://user:pass@github.com/owner/repo/pull/1"));
 	assert.throws(() => splitPRUrl("https://github.com/owner/repo/issues/1"));
 	assert.throws(() => splitPRUrl("https://github.com/owner/repo/pull/abc"));
 	assert.deepEqual(splitPRUrl("https://github.com/owner/repo/pull/42"), {
@@ -159,12 +140,7 @@ test("parseCounts sums totals and counts unresolved threads", () => {
 						reviews: { totalCount: 3 },
 						reviewThreads: {
 							totalCount: 4,
-							nodes: [
-								{ isResolved: false },
-								{ isResolved: true },
-								{ isResolved: false },
-								{},
-							],
+							nodes: [{ isResolved: false }, { isResolved: true }, { isResolved: false }, {}],
 						},
 					},
 				},
@@ -177,11 +153,7 @@ test("parseCounts sums totals and counts unresolved threads", () => {
 test("parseCounts rejects malformed payloads", () => {
 	assert.throws(() => parseCounts("not json"));
 	assert.throws(() => parseCounts(JSON.stringify({})));
-	assert.throws(() =>
-		parseCounts(
-			JSON.stringify({ data: { repository: { pullRequest: null } } }),
-		),
-	);
+	assert.throws(() => parseCounts(JSON.stringify({ data: { repository: { pullRequest: null } } })));
 	assert.throws(() =>
 		parseCounts(
 			JSON.stringify({
@@ -237,14 +209,8 @@ test("detectRepo resolves this repository and rejects non-repositories", async (
 });
 
 test("errorKind classifies lookup failures", () => {
-	assert.equal(
-		errorKind({ stderr: "no pull requests found for branch" }),
-		"absent",
-	);
-	assert.equal(
-		errorKind({ stderr: "none of the git remotes is a GitHub remote" }),
-		"absent",
-	);
+	assert.equal(errorKind({ stderr: "no pull requests found for branch" }), "absent");
+	assert.equal(errorKind({ stderr: "none of the git remotes is a GitHub remote" }), "absent");
 	assert.equal(errorKind({ code: "ENOENT" }), "cli-missing");
 	assert.equal(errorKind({ stderr: "HTTP 401 Bad credentials" }), "auth");
 	assert.equal(errorKind({ stderr: "API rate limit exceeded" }), "rate-limit");
@@ -272,9 +238,7 @@ const summaryBase = {
 } as const;
 
 function summaryPR(patch: Record<string, unknown>) {
-	return { ...summaryBase, ...patch } as unknown as Parameters<
-		typeof summarize
-	>[0];
+	return { ...summaryBase, ...patch } as unknown as Parameters<typeof summarize>[0];
 }
 
 test("summarizers map lifecycle and review decisions", () => {
@@ -301,21 +265,14 @@ test("mergeLineOf follows combined state, not conflicts alone", () => {
 		[{ mergeStateStatus: "BEHIND" }, "Behind base branch"],
 		[{ mergeStateStatus: "UNSTABLE" }, "Checks not passing"],
 		[{ mergeStateStatus: "HAS_HOOKS" }, "Merge hooks must pass"],
-		[
-			{ reviewDecision: "REVIEW_REQUIRED", mergeStateStatus: "CLEAN" },
-			"Awaiting required review",
-		],
+		[{ reviewDecision: "REVIEW_REQUIRED", mergeStateStatus: "CLEAN" }, "Awaiting required review"],
 		[{ mergeStateStatus: "UNKNOWN" }, "Merge status unknown"],
 		[{ mergeable: "UNKNOWN" }, "Merge status unknown"],
 		[{ state: "MERGED" }, "Merged"],
 		[{ state: "CLOSED" }, "Closed without merging"],
 	];
 	for (const [patch, expected] of cases) {
-		assert.equal(
-			mergeLineOf(summaryPR(patch)),
-			expected,
-			JSON.stringify(patch),
-		);
+		assert.equal(mergeLineOf(summaryPR(patch)), expected, JSON.stringify(patch));
 	}
 });
 
@@ -475,8 +432,7 @@ function setupMonitor(): MonitorHarness {
 	};
 }
 
-const state = (harness: MonitorHarness): Snapshot =>
-	harness.states[harness.states.length - 1];
+const state = (harness: MonitorHarness): Snapshot => harness.states[harness.states.length - 1];
 
 test("monitor throttles GitHub, bypasses on force and activity", async () => {
 	const harness = setupMonitor();
@@ -648,25 +604,15 @@ test("openBrowser launches the platform launcher with the full URL", async () =>
 	for (const [platform, env, launcher] of cases) {
 		const signal = new AbortController().signal;
 		let calls = 0;
-		const message = await openBrowser(
-			"https://github.com/o/r/pull/1",
-			"/repo",
-			signal,
-			{
-				platform,
-				env,
-				execute: async (...args) => {
-					calls++;
-					assert.deepEqual(args, [
-						launcher,
-						["https://github.com/o/r/pull/1"],
-						"/repo",
-						signal,
-					]);
-					return "";
-				},
+		const message = await openBrowser("https://github.com/o/r/pull/1", "/repo", signal, {
+			platform,
+			env,
+			execute: async (...args) => {
+				calls++;
+				assert.deepEqual(args, [launcher, ["https://github.com/o/r/pull/1"], "/repo", signal]);
+				return "";
 			},
-		);
+		});
 		assert.equal(calls, 1);
 		assert.equal(message, undefined);
 	}
@@ -690,30 +636,20 @@ test("openBrowser reports launcher failures and stays silent after disposal", as
 	}
 	const controller = new AbortController();
 	assert.equal(
-		await openBrowser(
-			"https://github.com/o/r/pull/1",
-			"/repo",
-			controller.signal,
-			{
-				platform: "darwin",
-				env: {},
-				execute: async () => {
-					controller.abort();
-					throw new Error("aborted");
-				},
+		await openBrowser("https://github.com/o/r/pull/1", "/repo", controller.signal, {
+			platform: "darwin",
+			env: {},
+			execute: async () => {
+				controller.abort();
+				throw new Error("aborted");
 			},
-		),
+		}),
 		undefined,
 	);
 	assert.equal(
-		await openBrowser(
-			"https://github.com/o/r/pull/1",
-			"/repo",
-			controller.signal,
-			{
-				execute: async () => assert.fail("must not launch after disposal"),
-			},
-		),
+		await openBrowser("https://github.com/o/r/pull/1", "/repo", controller.signal, {
+			execute: async () => assert.fail("must not launch after disposal"),
+		}),
 		undefined,
 	);
 });
@@ -728,24 +664,19 @@ test("copyToClipboard uses the platform clipboard and reports failure", async ()
 	for (const [platform, env, file, args] of cases) {
 		const signal = new AbortController().signal;
 		let seen = false;
-		const ok = await copyToClipboard(
-			"https://github.com/o/r/pull/1",
-			"/repo",
-			signal,
-			{
-				platform,
-				env,
-				execute: async (f, a, cwd, sig, input) => {
-					seen = true;
-					assert.equal(f, file);
-					assert.deepEqual(a, args);
-					assert.equal(cwd, "/repo");
-					assert.equal(sig, signal);
-					assert.equal(input, "https://github.com/o/r/pull/1");
-					return "";
-				},
+		const ok = await copyToClipboard("https://github.com/o/r/pull/1", "/repo", signal, {
+			platform,
+			env,
+			execute: async (f, a, cwd, sig, input) => {
+				seen = true;
+				assert.equal(f, file);
+				assert.deepEqual(a, args);
+				assert.equal(cwd, "/repo");
+				assert.equal(sig, signal);
+				assert.equal(input, "https://github.com/o/r/pull/1");
+				return "";
 			},
-		);
+		});
 		assert.equal(seen, true);
 		assert.equal(ok, true);
 	}

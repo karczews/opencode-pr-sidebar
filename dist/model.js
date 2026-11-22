@@ -130,9 +130,7 @@ export function parsePRView(text) {
     if (!Number.isInteger(data.number) || data.number < 1) {
         throw new Error("Invalid PR response: number");
     }
-    if (data.state !== "OPEN" &&
-        data.state !== "CLOSED" &&
-        data.state !== "MERGED") {
+    if (data.state !== "OPEN" && data.state !== "CLOSED" && data.state !== "MERGED") {
         throw new Error("Invalid PR response: state");
     }
     const url = asString(data, "url");
@@ -171,9 +169,7 @@ export function parsePRView(text) {
         deletions: asNonNegativeInt(data.deletions, "deletions"),
         changedFiles: asNonNegativeInt(data.changedFiles, "changedFiles"),
         updatedAt: asString(data, "updatedAt"),
-        mergeStateStatus: typeof data.mergeStateStatus === "string"
-            ? data.mergeStateStatus
-            : "UNKNOWN",
+        mergeStateStatus: typeof data.mergeStateStatus === "string" ? data.mergeStateStatus : "UNKNOWN",
         mergeable: typeof data.mergeable === "string" ? data.mergeable : "UNKNOWN",
         reviewDecision: typeof data.reviewDecision === "string" ? data.reviewDecision : "",
         statusCheckRollup: rollup,
@@ -466,8 +462,7 @@ export function createMonitor({ directory, publish, execute = run, now = Date.no
         }
         else if (!force &&
             lastFetchAt > 0 &&
-            now() - lastFetchAt <
-                (activity ? GITHUB_ACTIVITY_THROTTLE_MS : GITHUB_THROTTLE_MS)) {
+            now() - lastFetchAt < (activity ? GITHUB_ACTIVITY_THROTTLE_MS : GITHUB_THROTTLE_MS)) {
             return;
         }
         const expected = version;
@@ -531,7 +526,7 @@ export function createMonitor({ directory, publish, execute = run, now = Date.no
         },
     };
 }
-export async function openBrowser(url, cwd, signal, { env = process.env, platform = process.platform, execute = run, } = {}) {
+export async function openBrowser(url, cwd, signal, { env = process.env, platform = process.platform, execute = run } = {}) {
     if (signal.aborted) {
         return;
     }
@@ -541,11 +536,7 @@ export async function openBrowser(url, cwd, signal, { env = process.env, platfor
     if (platform === "linux" && !env.DISPLAY && !env.WAYLAND_DISPLAY) {
         return "No graphical display detected. Open the URL below in your browser.";
     }
-    const launcher = platform === "darwin"
-        ? "open"
-        : platform === "linux"
-            ? "xdg-open"
-            : undefined;
+    const launcher = platform === "darwin" ? "open" : platform === "linux" ? "xdg-open" : undefined;
     if (!launcher) {
         return "Browser opening is unavailable here. Open the URL below in your browser.";
     }
@@ -559,7 +550,7 @@ export async function openBrowser(url, cwd, signal, { env = process.env, platfor
     }
     return undefined;
 }
-export async function copyToClipboard(text, cwd, signal, { env = process.env, platform = process.platform, execute = run, } = {}) {
+export async function copyToClipboard(text, cwd, signal, { env = process.env, platform = process.platform, execute = run } = {}) {
     if (signal.aborted) {
         return false;
     }

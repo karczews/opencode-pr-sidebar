@@ -42,21 +42,15 @@ export default Plugin.define({
 		// Hide PR data fetched for a previous directory while the monitor catches up.
 		const pr = () => (state().directory === directory() ? state().pr : null);
 		const theme = () => context.theme;
-		const toast = (
-			message: string,
-			variant: "info" | "success" | "warning" | "error" = "info",
-		) => context.ui.toast.show({ title: "Pull Request", message, variant });
+		const toast = (message: string, variant: "info" | "success" | "warning" | "error" = "info") =>
+			context.ui.toast.show({ title: "Pull Request", message, variant });
 
 		async function open() {
 			const value = pr();
 			if (!value) {
 				return;
 			}
-			const message = await openBrowser(
-				value.url,
-				directory(),
-				lifecycle.signal,
-			);
+			const message = await openBrowser(value.url, directory(), lifecycle.signal);
 			if (message && !lifecycle.signal.aborted) {
 				toast(`${message} ${value.url}`, "warning");
 			}
@@ -67,16 +61,9 @@ export default Plugin.define({
 			if (!value) {
 				return;
 			}
-			const ok = await copyToClipboard(
-				value.url,
-				directory(),
-				lifecycle.signal,
-			);
+			const ok = await copyToClipboard(value.url, directory(), lifecycle.signal);
 			if (!lifecycle.signal.aborted) {
-				toast(
-					ok ? "PR URL copied" : "Could not copy PR URL",
-					ok ? "success" : "error",
-				);
+				toast(ok ? "PR URL copied" : "Could not copy PR URL", ok ? "success" : "error");
 			}
 		}
 
@@ -84,20 +71,13 @@ export default Plugin.define({
 			if (line === "Ready to merge" || line === "Merged") {
 				return theme().text.feedback.success.base;
 			}
-			if (
-				line === "Closed without merging" ||
-				line === "Merge status unknown"
-			) {
+			if (line === "Closed without merging" || line === "Merge status unknown") {
 				return theme().text.muted;
 			}
 			return theme().text.feedback.warning.base;
 		}
 
-		function ActionButton(props: {
-			label: string;
-			disabled?: boolean;
-			onPress: () => void;
-		}) {
+		function ActionButton(props: { label: string; disabled?: boolean; onPress: () => void }) {
 			const [over, setOver] = createSignal(false);
 			const disabled = () => props.disabled === true;
 			const highlighted = () => over() && !disabled();
@@ -108,9 +88,7 @@ export default Plugin.define({
 					paddingLeft={1}
 					paddingRight={1}
 					backgroundColor={
-						highlighted()
-							? theme().background.raised.high
-							: theme().background.raised.base
+						highlighted() ? theme().background.raised.high : theme().background.raised.base
 					}
 					onMouseOver={() => setOver(true)}
 					onMouseOut={() => setOver(false)}
@@ -122,9 +100,7 @@ export default Plugin.define({
 						props.onPress();
 					}}
 				>
-					<text fg={disabled() ? theme().text.faint : theme().text.base}>
-						{props.label}
-					</text>
+					<text fg={disabled() ? theme().text.faint : theme().text.base}>{props.label}</text>
 				</box>
 			);
 		}
@@ -146,8 +122,7 @@ export default Plugin.define({
 								void open();
 							}}
 						>
-							<b>#{props.p.number}</b>{" "}
-							<a href={props.p.url}>{clean(props.p.title)}</a>
+							<b>#{props.p.number}</b> <a href={props.p.url}>{clean(props.p.title)}</a>
 						</text>
 						<text fg={theme().text.muted}>
 							{clean(props.p.headRefName)} -&gt; {clean(props.p.baseRefName)}
@@ -181,17 +156,13 @@ export default Plugin.define({
 					</box>
 					<box>
 						<text fg={theme().text.base}>
-							+{props.p.additions.toLocaleString()} / -
-							{props.p.deletions.toLocaleString()} / {props.p.changedFiles}{" "}
-							files
+							+{props.p.additions.toLocaleString()} / -{props.p.deletions.toLocaleString()} /{" "}
+							{props.p.changedFiles} files
 						</text>
 						<text fg={theme().text.muted}>
-							{props.p.unresolvedThreads} unresolved / {props.p.totalComments}{" "}
-							total comments
+							{props.p.unresolvedThreads} unresolved / {props.p.totalComments} total comments
 						</text>
-						<text fg={theme().text.muted}>
-							Updated {ageOf(props.p.updatedAt, state().now)}
-						</text>
+						<text fg={theme().text.muted}>Updated {ageOf(props.p.updatedAt, state().now)}</text>
 						<text fg={theme().text.muted}>
 							{state().loading
 								? "Refreshing..."

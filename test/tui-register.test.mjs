@@ -13,16 +13,10 @@ test("setup() claims the sidebar slot, palette commands, and lifecycle events", 
 		const { transformSolidSource } = await import(
 			"../node_modules/@opentui/solid/scripts/solid-transform.js"
 		);
-		const transformed = await transformSolidSource(
-			readFileSync(join(root, "tui.tsx"), "utf8"),
-			{
-				filename: "tui.tsx",
-			},
-		);
-		writeFileSync(
-			join(outDir, "tui.js"),
-			transformed.replaceAll('"./model.ts"', '"./model.js"'),
-		);
+		const transformed = await transformSolidSource(readFileSync(join(root, "tui.tsx"), "utf8"), {
+			filename: "tui.tsx",
+		});
+		writeFileSync(join(outDir, "tui.js"), transformed.replaceAll('"./model.ts"', '"./model.js"'));
 		const { spawnSync } = await import("node:child_process");
 		const compiled = spawnSync(
 			process.execPath,
@@ -37,8 +31,7 @@ test("setup() claims the sidebar slot, palette commands, and lifecycle events", 
 		);
 		assert.equal(compiled.status, 0, compiled.stderr.toString());
 
-		const plugin = (await import(pathToFileURL(join(outDir, "tui.js")).href))
-			.default;
+		const plugin = (await import(pathToFileURL(join(outDir, "tui.js")).href)).default;
 		const { RGBA } = await import("@opentui/core");
 		const c = () => RGBA.fromInts(255, 255, 255, 255);
 		const stateful = () => ({

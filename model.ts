@@ -29,12 +29,7 @@ export type PullRequest = {
 	totalComments: number;
 };
 
-export type FetchErrorKind =
-	| "absent"
-	| "cli-missing"
-	| "auth"
-	| "rate-limit"
-	| "refresh-failed";
+export type FetchErrorKind = "absent" | "cli-missing" | "auth" | "rate-limit" | "refresh-failed";
 
 export const PR_VIEW_FIELDS = [
 	"url",
@@ -129,19 +124,10 @@ export async function fetchPRView(
 	signal: AbortSignal,
 	execute: Execute = run,
 ): Promise<string> {
-	return execute(
-		"gh",
-		["pr", "view", "--json", PR_VIEW_FIELDS],
-		directory,
-		signal,
-	);
+	return execute("gh", ["pr", "view", "--json", PR_VIEW_FIELDS], directory, signal);
 }
 
-export function countsQuery(
-	owner: string,
-	repo: string,
-	number: number,
-): string {
+export function countsQuery(owner: string, repo: string, number: number): string {
 	if (!Number.isInteger(number) || number < 1) {
 		throw new Error("Invalid PR number");
 	}
@@ -235,11 +221,7 @@ export function parsePRView(
 	if (!Number.isInteger(data.number) || (data.number as number) < 1) {
 		throw new Error("Invalid PR response: number");
 	}
-	if (
-		data.state !== "OPEN" &&
-		data.state !== "CLOSED" &&
-		data.state !== "MERGED"
-	) {
+	if (data.state !== "OPEN" && data.state !== "CLOSED" && data.state !== "MERGED") {
 		throw new Error("Invalid PR response: state");
 	}
 	const url = asString(data, "url");
@@ -278,13 +260,9 @@ export function parsePRView(
 		deletions: asNonNegativeInt(data.deletions, "deletions"),
 		changedFiles: asNonNegativeInt(data.changedFiles, "changedFiles"),
 		updatedAt: asString(data, "updatedAt"),
-		mergeStateStatus:
-			typeof data.mergeStateStatus === "string"
-				? data.mergeStateStatus
-				: "UNKNOWN",
+		mergeStateStatus: typeof data.mergeStateStatus === "string" ? data.mergeStateStatus : "UNKNOWN",
 		mergeable: typeof data.mergeable === "string" ? data.mergeable : "UNKNOWN",
-		reviewDecision:
-			typeof data.reviewDecision === "string" ? data.reviewDecision : "",
+		reviewDecision: typeof data.reviewDecision === "string" ? data.reviewDecision : "",
 		statusCheckRollup: rollup,
 	};
 }
@@ -301,24 +279,15 @@ export function parseCounts(text: string): {
 	}
 	const root = asRecord(data, "Invalid counts response");
 	const payload = asRecord(root.data, "Invalid counts response: data");
-	const repository = asRecord(
-		payload.repository,
-		"Invalid counts response: repository",
-	);
-	const pr = asRecord(
-		repository.pullRequest,
-		"Invalid counts response: pullRequest",
-	);
+	const repository = asRecord(payload.repository, "Invalid counts response: repository");
+	const pr = asRecord(repository.pullRequest, "Invalid counts response: pullRequest");
 	const totalOf = (key: string): number => {
 		const section = asRecord(pr[key], `Invalid counts response: ${key}`);
 		return asNonNegativeInt(section.totalCount, key);
 	};
 	const comments = totalOf("comments");
 	const reviews = totalOf("reviews");
-	const threadsSection = asRecord(
-		pr.reviewThreads,
-		"Invalid counts response: reviewThreads",
-	);
+	const threadsSection = asRecord(pr.reviewThreads, "Invalid counts response: reviewThreads");
 	const threads = asNonNegativeInt(threadsSection.totalCount, "reviewThreads");
 	if (!Array.isArray(threadsSection.nodes)) {
 		throw new Error("Invalid counts response: reviewThreads nodes");
@@ -342,19 +311,13 @@ export function errorKind(error: unknown): FetchErrorKind {
 			? (error as { stderr?: unknown; message?: unknown; code?: unknown })
 			: {};
 	const text = String(detail.stderr ?? detail.message ?? "");
-	if (
-		/no pull requests? found|no GitHub remotes|none of the git remotes.*GitHub/i.test(
-			text,
-		)
-	) {
+	if (/no pull requests? found|no GitHub remotes|none of the git remotes.*GitHub/i.test(text)) {
 		return "absent";
 	}
 	if (detail.code === "ENOENT") {
 		return "cli-missing";
 	}
-	if (
-		/auth login|authentication|HTTP 401|Bad credentials|not logged/i.test(text)
-	) {
+	if (/auth login|authentication|HTTP 401|Bad credentials|not logged/i.test(text)) {
 		return "auth";
 	}
 	if (/rate limit/i.test(text)) {
@@ -436,9 +399,7 @@ export function summarizeReview(decision: string): string {
 	return "No review decision";
 }
 
-export function lifecycleOf(
-	pr: Pick<PullRequest, "state" | "isDraft">,
-): string {
+export function lifecycleOf(pr: Pick<PullRequest, "state" | "isDraft">): string {
 	if (pr.state === "MERGED") {
 		return "Merged";
 	}
@@ -449,10 +410,7 @@ export function lifecycleOf(
 }
 
 export function mergeLineOf(
-	pr: Pick<
-		PullRequest,
-		"state" | "isDraft" | "mergeStateStatus" | "mergeable" | "reviewDecision"
-	>,
+	pr: Pick<PullRequest, "state" | "isDraft" | "mergeStateStatus" | "mergeable" | "reviewDecision">,
 ): string {
 	// Order matters: the first matching blocker wins.
 	if (pr.state === "MERGED") {
@@ -491,10 +449,7 @@ export function mergeLineOf(
 	return "Merge status unknown";
 }
 
-export function ageOf(
-	time: string | number | undefined,
-	now: number = Date.now(),
-): string {
+export function ageOf(time: string | number | undefined, now: number = Date.now()): string {
 	const timestamp = new Date(time ?? Number.NaN).getTime();
 	const seconds = Math.max(0, Math.floor((now - timestamp) / 1000));
 	if (!Number.isFinite(seconds)) {
@@ -597,11 +552,7 @@ export function createMonitor({
 		emit({ pr: null, error: "", fetchedAt: 0, loading: false });
 	};
 
-	const isStale = (
-		expected: number,
-		cwd: string,
-		signal: AbortSignal,
-	): boolean =>
+	const isStale = (expected: number, cwd: string, signal: AbortSignal): boolean =>
 		stopped || expected !== version || directory() !== cwd || signal.aborted;
 
 	async function cycle(force: boolean, activity: boolean): Promise<void> {
@@ -659,8 +610,7 @@ export function createMonitor({
 		} else if (
 			!force &&
 			lastFetchAt > 0 &&
-			now() - lastFetchAt <
-				(activity ? GITHUB_ACTIVITY_THROTTLE_MS : GITHUB_THROTTLE_MS)
+			now() - lastFetchAt < (activity ? GITHUB_ACTIVITY_THROTTLE_MS : GITHUB_THROTTLE_MS)
 		) {
 			return;
 		}
@@ -741,11 +691,7 @@ export async function openBrowser(
 	url: string,
 	cwd: string,
 	signal: AbortSignal,
-	{
-		env = process.env,
-		platform = process.platform,
-		execute = run,
-	}: PlatformDeps = {},
+	{ env = process.env, platform = process.platform, execute = run }: PlatformDeps = {},
 ): Promise<string | undefined> {
 	if (signal.aborted) {
 		return;
@@ -756,12 +702,7 @@ export async function openBrowser(
 	if (platform === "linux" && !env.DISPLAY && !env.WAYLAND_DISPLAY) {
 		return "No graphical display detected. Open the URL below in your browser.";
 	}
-	const launcher =
-		platform === "darwin"
-			? "open"
-			: platform === "linux"
-				? "xdg-open"
-				: undefined;
+	const launcher = platform === "darwin" ? "open" : platform === "linux" ? "xdg-open" : undefined;
 	if (!launcher) {
 		return "Browser opening is unavailable here. Open the URL below in your browser.";
 	}
@@ -779,11 +720,7 @@ export async function copyToClipboard(
 	text: string,
 	cwd: string,
 	signal: AbortSignal,
-	{
-		env = process.env,
-		platform = process.platform,
-		execute = run,
-	}: PlatformDeps = {},
+	{ env = process.env, platform = process.platform, execute = run }: PlatformDeps = {},
 ): Promise<boolean> {
 	if (signal.aborted) {
 		return false;

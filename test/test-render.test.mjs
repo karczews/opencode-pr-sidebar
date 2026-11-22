@@ -1,12 +1,6 @@
 import assert from "node:assert/strict";
 import { execFileSync, spawnSync } from "node:child_process";
-import {
-	mkdirSync,
-	mkdtempSync,
-	readFileSync,
-	rmSync,
-	writeFileSync,
-} from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
@@ -64,27 +58,14 @@ function setupWorktree({ repo = "git", branch = "feature", gh = "ok" } = {}) {
 	const repoDir = join(dir, "repo");
 	mkdirSync(bin, { recursive: true });
 	if (repo === "git") {
-		execFileSync("git", [
-			"init",
-			"-q",
-			"-b",
-			branch === "detached" ? "feature" : branch,
-			repoDir,
-		]);
+		execFileSync("git", ["init", "-q", "-b", branch === "detached" ? "feature" : branch, repoDir]);
 		execFileSync("git", ["-C", repoDir, "config", "user.email", "t@t"]);
 		execFileSync("git", ["-C", repoDir, "config", "user.name", "t"]);
 		writeFileSync(join(repoDir, "f.txt"), "hi\n");
 		execFileSync("git", ["-C", repoDir, "add", "."]);
 		execFileSync("git", ["-C", repoDir, "commit", "-qm", "init"]);
 		if (branch === "detached") {
-			execFileSync("git", [
-				"-C",
-				repoDir,
-				"checkout",
-				"-q",
-				"--detach",
-				"HEAD",
-			]);
+			execFileSync("git", ["-C", repoDir, "checkout", "-q", "--detach", "HEAD"]);
 		}
 	} else {
 		mkdirSync(repoDir, { recursive: true });
@@ -133,16 +114,10 @@ async function compilePlugin(outDir) {
 		"../node_modules/@opentui/solid/scripts/solid-transform.js"
 	);
 	const { readFileSync } = await import("node:fs");
-	const transformed = await transformSolidSource(
-		readFileSync(join(root, "tui.tsx"), "utf8"),
-		{
-			filename: "tui.tsx",
-		},
-	);
-	writeFileSync(
-		join(outDir, "tui.js"),
-		transformed.replaceAll('"./model.ts"', '"./model.js"'),
-	);
+	const transformed = await transformSolidSource(readFileSync(join(root, "tui.tsx"), "utf8"), {
+		filename: "tui.tsx",
+	});
+	writeFileSync(join(outDir, "tui.js"), transformed.replaceAll('"./model.ts"', '"./model.js"'));
 	const compiled = spawnSync(
 		process.execPath,
 		[
@@ -154,11 +129,7 @@ async function compilePlugin(outDir) {
 		],
 		{ cwd: root },
 	);
-	assert.equal(
-		compiled.status,
-		0,
-		compiled.stderr.toString() || compiled.stdout.toString(),
-	);
+	assert.equal(compiled.status, 0, compiled.stderr.toString() || compiled.stdout.toString());
 }
 
 function makeTheme(RGBA) {
@@ -246,11 +217,8 @@ function makeTheme(RGBA) {
 async function setupPlugin(directory, toasts = []) {
 	const { RGBA } = await import("@opentui/core");
 	const outDir = join(root, ".tmp-render");
-	const plugin = (
-		await import(
-			`${pathToFileURL(join(outDir, "tui.js")).href}?x=${Date.now()}`
-		)
-	).default;
+	const plugin = (await import(`${pathToFileURL(join(outDir, "tui.js")).href}?x=${Date.now()}`))
+		.default;
 	const slots = [];
 	const layers = [];
 	const events = [];
@@ -321,11 +289,7 @@ async function capture(setup) {
 	}
 }
 
-async function pollFor(
-	setup,
-	predicate,
-	{ timeoutMs = 15000, intervalMs = 250 } = {},
-) {
+async function pollFor(setup, predicate, { timeoutMs = 15000, intervalMs = 250 } = {}) {
 	const start = Date.now();
 	let frame = await capture(setup);
 	while (!predicate(frame)) {
@@ -416,8 +380,7 @@ test("sidebar card renders every P0 field for the current-branch PR", async () =
 	await runCase({}, async (setup) => {
 		const frame = await pollFor(
 			setup,
-			(text) =>
-				text.includes("Example smoke PR") && text.includes("Ready to merge"),
+			(text) => text.includes("Example smoke PR") && text.includes("Ready to merge"),
 		);
 		for (const expected of [
 			"Pull Request",
@@ -437,10 +400,7 @@ test("sidebar card renders every P0 field for the current-branch PR", async () =
 			"Checked",
 			"Refresh",
 		]) {
-			assert.ok(
-				frame.includes(expected),
-				`missing ${JSON.stringify(expected)}`,
-			);
+			assert.ok(frame.includes(expected), `missing ${JSON.stringify(expected)}`);
 		}
 		assert.ok(!frame.includes("STALE"), "must not show stale state on success");
 	});
@@ -464,11 +424,7 @@ test("sidebar card hides in non-git directories without querying GitHub", async 
 	await runCase({ repo: "plain" }, async (setup, { dir }) => {
 		const frame = await settle(setup);
 		assert.ok(!frame.includes("Pull Request"), "card must stay hidden");
-		assert.deepEqual(
-			ghCalls(dir),
-			[],
-			"must not query GitHub outside repositories",
-		);
+		assert.deepEqual(ghCalls(dir), [], "must not query GitHub outside repositories");
 	});
 });
 
@@ -476,11 +432,7 @@ test("sidebar card hides on detached HEAD without querying GitHub", async () => 
 	await runCase({ branch: "detached" }, async (setup, { dir }) => {
 		const frame = await settle(setup);
 		assert.ok(!frame.includes("Pull Request"), "card must stay hidden");
-		assert.deepEqual(
-			ghCalls(dir),
-			[],
-			"must not query GitHub on detached HEAD",
-		);
+		assert.deepEqual(ghCalls(dir), [], "must not query GitHub on detached HEAD");
 	});
 });
 
@@ -500,9 +452,7 @@ test("sidebar card hides on branch/PR head mismatch without extra queries", asyn
 
 test("sidebar card shows authentication errors without PR data", async () => {
 	await runCase({ gh: "auth" }, async (setup) => {
-		const frame = await pollFor(setup, (text) =>
-			text.includes("GitHub authentication required"),
-		);
+		const frame = await pollFor(setup, (text) => text.includes("GitHub authentication required"));
 		assert.ok(frame.includes("GitHub authentication required"));
 		assert.ok(!frame.includes("#42"), "must not invent PR data");
 		assert.ok(!frame.includes("STALE"), "initial failure is not stale data");
@@ -511,9 +461,7 @@ test("sidebar card shows authentication errors without PR data", async () => {
 
 test("sidebar card shows rate-limit errors without PR data", async () => {
 	await runCase({ gh: "ratelimit" }, async (setup) => {
-		const frame = await pollFor(setup, (text) =>
-			text.includes("GitHub rate limit reached"),
-		);
+		const frame = await pollFor(setup, (text) => text.includes("GitHub rate limit reached"));
 		assert.ok(frame.includes("GitHub rate limit reached"));
 		assert.ok(!frame.includes("#42"), "must not invent PR data");
 	});
@@ -521,9 +469,7 @@ test("sidebar card shows rate-limit errors without PR data", async () => {
 
 test("sidebar card shows CLI-unavailable errors without PR data", async () => {
 	await runCase({ gh: "missing" }, async (setup) => {
-		const frame = await pollFor(setup, (text) =>
-			text.includes("GitHub CLI unavailable"),
-		);
+		const frame = await pollFor(setup, (text) => text.includes("GitHub CLI unavailable"));
 		assert.ok(frame.includes("GitHub CLI unavailable"));
 		assert.ok(!frame.includes("#42"), "must not invent PR data");
 	});
@@ -542,10 +488,7 @@ test("sidebar card keeps stale data and offers refresh after failures", async ()
 		});
 		assert.ok(frame.includes("STALE"), "must mark retained data as stale");
 		assert.ok(frame.includes("#42"), "must retain the last successful PR");
-		assert.ok(
-			frame.includes("PR refresh failed"),
-			"must name the failure kind",
-		);
+		assert.ok(frame.includes("PR refresh failed"), "must name the failure kind");
 	});
 });
 
@@ -557,14 +500,7 @@ test("open and copy report failures with the URL when launchers are unavailable"
 	try {
 		await compilePlugin(join(root, ".tmp-render"));
 		// Shadow the launchers with failing stubs so nothing opens or copies.
-		for (const launcher of [
-			"open",
-			"xdg-open",
-			"pbcopy",
-			"clip",
-			"wl-copy",
-			"xclip",
-		]) {
+		for (const launcher of ["open", "xdg-open", "pbcopy", "clip", "wl-copy", "xclip"]) {
 			writeFileSync(join(bin, launcher), "#!/bin/sh\nexit 1\n", {
 				mode: 0o775,
 			});
@@ -580,10 +516,7 @@ test("open and copy report failures with the URL when launchers are unavailable"
 		try {
 			await pollFor(setup, (text) => text.includes("Example smoke PR"));
 			for (const [label, expected] of [
-				[
-					"Open",
-					/Could not launch a browser.*https:\/\/github.com\/owner\/repo\/pull\/42/,
-				],
+				["Open", /Could not launch a browser.*https:\/\/github.com\/owner\/repo\/pull\/42/],
 				["Copy URL", /Could not copy PR URL/],
 			]) {
 				toasts.length = 0;
@@ -625,62 +558,32 @@ test("header toggles the card and survives a resize", async () => {
 		const at = findText(spans, "Pull Request");
 		assert.ok(at, "header must be visible");
 		await setup.mockMouse.click(at.x, at.y, 0);
-		const collapsed = await pollFor(
-			setup,
-			(text) => !text.includes("Example smoke PR"),
-		);
-		assert.ok(
-			collapsed.includes("Pull Request"),
-			"header stays visible while collapsed",
-		);
-		assert.ok(
-			!collapsed.includes("Ready to merge"),
-			"body hides while collapsed",
-		);
+		const collapsed = await pollFor(setup, (text) => !text.includes("Example smoke PR"));
+		assert.ok(collapsed.includes("Pull Request"), "header stays visible while collapsed");
+		assert.ok(!collapsed.includes("Ready to merge"), "body hides while collapsed");
 
 		await setup.resize(70, 24);
-		const resized = await pollFor(setup, (text) =>
-			text.includes("Pull Request"),
-		);
-		assert.ok(
-			resized.includes("Pull Request"),
-			"card survives resize while collapsed",
-		);
+		const resized = await pollFor(setup, (text) => text.includes("Pull Request"));
+		assert.ok(resized.includes("Pull Request"), "card survives resize while collapsed");
 
 		const again = findText(setup.captureSpans(), "Pull Request");
 		assert.ok(again, "header must be clickable after resize");
 		await setup.mockMouse.click(again.x, again.y, 0);
-		const expanded = await pollFor(setup, (text) =>
-			text.includes("Ready to merge"),
-		);
+		const expanded = await pollFor(setup, (text) => text.includes("Ready to merge"));
 		assert.ok(expanded.includes("Example smoke PR"), "card expands again");
 	});
 });
 
 test("header uses triangle disclosure indicators", async () => {
 	await runCase({}, async (setup) => {
-		const expanded = await pollFor(setup, (text) =>
-			text.includes("Example smoke PR"),
-		);
-		assert.ok(
-			expanded.includes("▼"),
-			"expanded header must show a down-pointing triangle",
-		);
+		const expanded = await pollFor(setup, (text) => text.includes("Example smoke PR"));
+		assert.ok(expanded.includes("▼"), "expanded header must show a down-pointing triangle");
 		const spans = setup.captureSpans();
 		const at = findText(spans, "Pull Request");
 		assert.ok(at, "header must be visible");
 		await setup.mockMouse.click(at.x, at.y, 0);
-		const collapsed = await pollFor(
-			setup,
-			(text) => !text.includes("Example smoke PR"),
-		);
-		assert.ok(
-			collapsed.includes("▶"),
-			"collapsed header must show a right-pointing triangle",
-		);
-		assert.ok(
-			!collapsed.includes("▼"),
-			"collapsed header must not show the expanded triangle",
-		);
+		const collapsed = await pollFor(setup, (text) => !text.includes("Example smoke PR"));
+		assert.ok(collapsed.includes("▶"), "collapsed header must show a right-pointing triangle");
+		assert.ok(!collapsed.includes("▼"), "collapsed header must not show the expanded triangle");
 	});
 });

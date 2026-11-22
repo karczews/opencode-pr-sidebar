@@ -192,31 +192,31 @@ export default Plugin.define({
           _el$18 = _$createTextNode(`+`),
           _el$19 = _$createTextNode(` / -`),
           _el$20 = _$createTextNode(` / `),
-          _el$21 = _$createTextNode(` files`),
+          _el$22 = _$createTextNode(` files`),
           _el$23 = _$createElement("text"),
           _el$24 = _$createTextNode(` unresolved / `),
           _el$25 = _$createTextNode(` total comments`),
-          _el$27 = _$createElement("text"),
-          _el$28 = _$createTextNode(`Updated `),
-          _el$29 = _$createElement("text");
+          _el$26 = _$createElement("text"),
+          _el$27 = _$createTextNode(`Updated `),
+          _el$28 = _$createElement("text");
         _$insertNode(_el$16, _el$17);
         _$insertNode(_el$16, _el$23);
-        _$insertNode(_el$16, _el$27);
-        _$insertNode(_el$16, _el$29);
+        _$insertNode(_el$16, _el$26);
+        _$insertNode(_el$16, _el$28);
         _$insertNode(_el$17, _el$18);
         _$insertNode(_el$17, _el$19);
         _$insertNode(_el$17, _el$20);
-        _$insertNode(_el$17, _el$21);
+        _$insertNode(_el$17, _el$22);
         _$insert(_el$17, () => props.p.additions.toLocaleString(), _el$19);
         _$insert(_el$17, () => props.p.deletions.toLocaleString(), _el$20);
-        _$insert(_el$17, () => props.p.changedFiles, _el$21);
+        _$insert(_el$17, () => props.p.changedFiles, _el$22);
         _$insertNode(_el$23, _el$24);
         _$insertNode(_el$23, _el$25);
         _$insert(_el$23, () => props.p.unresolvedThreads, _el$24);
         _$insert(_el$23, () => props.p.totalComments, _el$25);
-        _$insertNode(_el$27, _el$28);
-        _$insert(_el$27, () => ageOf(props.p.updatedAt, state().now), null);
-        _$insert(_el$29, (() => {
+        _$insertNode(_el$26, _el$27);
+        _$insert(_el$26, () => ageOf(props.p.updatedAt, state().now), null);
+        _$insert(_el$28, (() => {
           var _c$ = _$memo(() => !!state().loading);
           return () => _c$() ? "Refreshing..." : `Checked ${ageOf(state().fetchedAt, state().now)}`;
         })());
@@ -227,8 +227,8 @@ export default Plugin.define({
             _v$11 = theme().text.muted;
           _v$0 !== _p$.e && (_p$.e = _$setProp(_el$17, "fg", _v$0, _p$.e));
           _v$1 !== _p$.t && (_p$.t = _$setProp(_el$23, "fg", _v$1, _p$.t));
-          _v$10 !== _p$.a && (_p$.a = _$setProp(_el$27, "fg", _v$10, _p$.a));
-          _v$11 !== _p$.o && (_p$.o = _$setProp(_el$29, "fg", _v$11, _p$.o));
+          _v$10 !== _p$.a && (_p$.a = _$setProp(_el$26, "fg", _v$10, _p$.a));
+          _v$11 !== _p$.o && (_p$.o = _$setProp(_el$28, "fg", _v$11, _p$.o));
           return _p$;
         }, {
           e: undefined,
@@ -259,29 +259,29 @@ export default Plugin.define({
       });
       // A stable root keeps the slot mounted while the first lookup is in flight.
       return (() => {
-        var _el$30 = _$createElement("box"),
-          _el$31 = _$createElement("box"),
+        var _el$29 = _$createElement("box"),
+          _el$30 = _$createElement("box"),
+          _el$31 = _$createElement("text"),
           _el$32 = _$createElement("text"),
-          _el$33 = _$createElement("text"),
-          _el$34 = _$createElement("b");
+          _el$33 = _$createElement("b");
+        _$insertNode(_el$29, _el$30);
+        _$setProp(_el$29, "gap", 1);
+        _$setProp(_el$29, "flexShrink", 0);
         _$insertNode(_el$30, _el$31);
+        _$insertNode(_el$30, _el$32);
+        _$setProp(_el$30, "flexDirection", "row");
         _$setProp(_el$30, "gap", 1);
-        _$setProp(_el$30, "flexShrink", 0);
-        _$insertNode(_el$31, _el$32);
-        _$insertNode(_el$31, _el$33);
-        _$setProp(_el$31, "flexDirection", "row");
-        _$setProp(_el$31, "gap", 1);
-        _$setProp(_el$31, "onMouseDown", event => {
+        _$setProp(_el$30, "onMouseDown", event => {
           if (event.button !== 0) {
             return;
           }
           event.stopPropagation();
           setExpanded(value => !value);
         });
-        _$insert(_el$32, () => expanded() ? "▼" : "▶");
-        _$insertNode(_el$33, _el$34);
-        _$insertNode(_el$34, _$createTextNode(`Pull Request`));
-        _$insert(_el$30, (() => {
+        _$insert(_el$31, () => expanded() ? "▼" : "▶");
+        _$insertNode(_el$32, _el$33);
+        _$insertNode(_el$33, _$createTextNode(`Pull Request`));
+        _$insert(_el$29, (() => {
           var _c$2 = _$memo(() => !!expanded());
           return () => _c$2() ? [_$createComponent(Show, {
             get when() {
@@ -293,17 +293,17 @@ export default Plugin.define({
               }
             })
           }), _$memo(() => _$memo(() => !!state().error)() ? (() => {
-            var _el$37 = _$createElement("text");
-            _$insert(_el$37, () => pr() ? "STALE: " : "", null);
-            _$insert(_el$37, () => state().error, null);
-            _$effect(_$p => _$setProp(_el$37, "fg", theme().text.feedback.warning.base, _$p));
-            return _el$37;
+            var _el$36 = _$createElement("text");
+            _$insert(_el$36, () => pr() ? "STALE: " : "", null);
+            _$insert(_el$36, () => state().error, null);
+            _$effect(_$p => _$setProp(_el$36, "fg", theme().text.feedback.warning.base, _$p));
+            return _el$36;
           })() : null), (() => {
-            var _el$36 = _$createElement("box");
-            _$setProp(_el$36, "flexDirection", "row");
-            _$setProp(_el$36, "gap", 1);
-            _$setProp(_el$36, "flexWrap", "wrap");
-            _$insert(_el$36, _$createComponent(ActionButton, {
+            var _el$35 = _$createElement("box");
+            _$setProp(_el$35, "flexDirection", "row");
+            _$setProp(_el$35, "gap", 1);
+            _$setProp(_el$35, "flexWrap", "wrap");
+            _$insert(_el$35, _$createComponent(ActionButton, {
               get label() {
                 return state().loading ? "Refreshing" : "Refresh";
               },
@@ -312,31 +312,31 @@ export default Plugin.define({
               },
               onPress: () => monitor?.tick(true)
             }), null);
-            _$insert(_el$36, _$createComponent(ActionButton, {
+            _$insert(_el$35, _$createComponent(ActionButton, {
               label: "Copy URL",
               onPress: () => void copy()
             }), null);
-            _$insert(_el$36, _$createComponent(ActionButton, {
+            _$insert(_el$35, _$createComponent(ActionButton, {
               label: "Open",
               onPress: () => void open()
             }), null);
-            return _el$36;
+            return _el$35;
           })()] : null;
         })(), null);
         _$effect(_p$ => {
           var _v$12 = Boolean(pr() || state().error),
             _v$13 = theme().text.base,
             _v$14 = theme().text.base;
-          _v$12 !== _p$.e && (_p$.e = _$setProp(_el$30, "visible", _v$12, _p$.e));
-          _v$13 !== _p$.t && (_p$.t = _$setProp(_el$32, "fg", _v$13, _p$.t));
-          _v$14 !== _p$.a && (_p$.a = _$setProp(_el$33, "fg", _v$14, _p$.a));
+          _v$12 !== _p$.e && (_p$.e = _$setProp(_el$29, "visible", _v$12, _p$.e));
+          _v$13 !== _p$.t && (_p$.t = _$setProp(_el$31, "fg", _v$13, _p$.t));
+          _v$14 !== _p$.a && (_p$.a = _$setProp(_el$32, "fg", _v$14, _p$.a));
           return _p$;
         }, {
           e: undefined,
           t: undefined,
           a: undefined
         });
-        return _el$30;
+        return _el$29;
       })();
     }
     context.ui.slot({
