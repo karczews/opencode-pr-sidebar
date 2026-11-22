@@ -1,6 +1,7 @@
 # pr-sidebar
 
 [![check](https://github.com/karczews/opencode-pr-sidebar/actions/workflows/check.yml/badge.svg?branch=main)](https://github.com/karczews/opencode-pr-sidebar/actions/workflows/check.yml?query=branch%3Amain)
+[![npm](https://img.shields.io/npm/v/opencode-pr-sidebar)](https://www.npmjs.com/package/opencode-pr-sidebar)
 
 Current-branch GitHub pull request card for the OpenCode TUI sidebar.
 
