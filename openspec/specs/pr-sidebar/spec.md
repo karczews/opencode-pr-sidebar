@@ -18,7 +18,11 @@ The system SHALL detect the working directory's current branch and display its p
 - **THEN** the card discards the previous pull request and looks up the new branch's pull request.
 
 ### Requirement: Clickable pull request link with open and copy actions
-The system SHALL make the pull request title a terminal hyperlink and provide Open-in-browser and Copy-URL actions with a manual-URL fallback.
+The system SHALL make the pull request title a terminal hyperlink, visibly styled as a link, and provide Open-in-browser and Copy-URL actions with a manual-URL fallback.
+
+#### Scenario: Title is styled as a link
+- **WHEN** the card shows a pull request
+- **THEN** the pull request title is rendered underlined in the link color, and the surrounding card text, including the `#<number>` prefix, is not underlined.
 
 #### Scenario: Open pull request in browser
 - **WHEN** the user activates the title link or the Open action and a local browser launcher exists
