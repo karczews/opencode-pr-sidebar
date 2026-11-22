@@ -70,7 +70,7 @@ notes.
    ```
    +-------------------------------------------+
    | ▼ Pull Request                            |
-   | #42 Fix login  (hyperlink, click to open) |
+   | #42 Fix login  (click #42 to open)        |
    | feature -> main                           |
    | Open                                      |
    | Review: Approved                          |
@@ -84,7 +84,7 @@ notes.
    +-------------------------------------------+
    ```
 
-3. Click the title or `Open` to launch the pull request in your browser. When no
+3. Click the PR number or `Open` to launch the pull request in your browser. When no
    browser launcher is available, a toast shows the full URL so you can open it
    manually.
 4. Use `Copy URL` to put the full URL on the clipboard.

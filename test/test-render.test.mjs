@@ -540,6 +540,28 @@ test("open and copy report failures with the URL when launchers are unavailable"
 		const setup = await testRender(harness.render, { width: 100, height: 40 });
 		try {
 			await pollFor(setup, (text) => text.includes("Example smoke PR"));
+			// The PR number is the card's link; the title next to it is plain text.
+			const number = findText(setup.captureSpans(), "#42");
+			assert.ok(number, "PR number must be visible");
+			await setup.mockMouse.click(number.x, number.y, 0);
+			const numberDeadline = Date.now() + 15_000;
+			while (toasts.length === 0 && Date.now() < numberDeadline) {
+				await setup.flush();
+				await sleep(100);
+			}
+			assert.equal(toasts.length, 1, "clicking the PR number must open the PR");
+			assert.match(toasts[0].message, /Could not launch a browser.*pull\/42/);
+
+			toasts.length = 0;
+			const title = findText(setup.captureSpans(), "Example smoke PR");
+			await setup.mockMouse.click(title.x + 2, title.y, 0);
+			const titleDeadline = Date.now() + 1000;
+			while (Date.now() < titleDeadline) {
+				await setup.flush();
+				await sleep(100);
+			}
+			assert.equal(toasts.length, 0, "clicking the PR title must not open the PR");
+
 			for (const [label, expected] of [
 				["Open", /Could not launch a browser.*https:\/\/github.com\/owner\/repo\/pull\/42/],
 				["Copy URL", /Could not copy PR URL/],
@@ -613,7 +635,7 @@ test("header uses triangle disclosure indicators", async () => {
 	});
 });
 
-test("sidebar card underlines only the PR title link", async () => {
+test("sidebar card makes only the PR number a link", async () => {
 	await runCase({}, async (setup) => {
 		await pollFor(setup, (text) => text.includes("Example smoke PR"));
 		const { TextAttributes } = await import("@opentui/core");
@@ -621,22 +643,43 @@ test("sidebar card underlines only the PR title link", async () => {
 		const spans = setup.captureSpans();
 		const body = cardBodySpans(spans);
 		const spansWith = (needle) => body.filter((span) => span.text.includes(needle));
+		// Span attributes omit link ids in captures; the renderer keeps them per cell.
+		const linkIdsOf = (needle) => {
+			const at = findText(spans, needle);
+			assert.ok(at, `missing ${JSON.stringify(needle)}`);
+			const span = spans.lines[at.y].spans.find((s) => s.text.includes(needle));
+			const start = at.x - 1 + span.text.indexOf(needle);
+			return [...needle].map((_, i) => setup.renderer.getLinkIdAt(start + i, at.y));
+		};
+
+		const number = spansWith("#42");
+		assert.ok(number.length > 0, "number must be visible");
+		for (const span of number) {
+			assert.ok(underlined(span), "number must be underlined");
+			assert.deepEqual(span.fg.toInts(), [...LINK_RGB, 255], "number must use the link color");
+		}
+		assert.ok(
+			linkIdsOf("#42").every((id) => id > 0),
+			"number must be a terminal hyperlink",
+		);
 
 		const title = spansWith("Example smoke PR");
 		assert.ok(title.length > 0, "title must be visible");
 		for (const span of title) {
-			assert.ok(underlined(span), "title must be underlined");
-			assert.deepEqual(span.fg.toInts(), [...LINK_RGB, 255], "title must use the link color");
+			assert.ok(!underlined(span), "title must not be underlined");
+			assert.deepEqual(
+				span.fg.toInts(),
+				[...TONE_RGB.base, 255],
+				"title must use the base text color",
+			);
 		}
-		// Span attributes omit link ids in captures; the renderer keeps them per cell.
-		const at = findText(spans, "Example smoke PR");
-		assert.ok(setup.renderer.getLinkIdAt(at.x, at.y) > 0, "title must stay a terminal hyperlink");
-		for (const needle of ["#42", "feature"]) {
-			const spans = spansWith(needle);
-			assert.ok(spans.length > 0, `missing ${JSON.stringify(needle)}`);
-			for (const span of spans) {
-				assert.ok(!underlined(span), `${needle} must not be underlined`);
-			}
+		assert.ok(
+			linkIdsOf("Example smoke PR").every((id) => id === 0),
+			"title must not be a terminal hyperlink",
+		);
+
+		for (const span of spansWith("feature")) {
+			assert.ok(!underlined(span), "branch line must not be underlined");
 		}
 	});
 });
