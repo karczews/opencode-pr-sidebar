@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.0](https://github.com/karczews/opencode-pr-sidebar/compare/v0.1.5...v0.2.0) (2026-11-22)
+
+
+### Features
+
+* **pr-sidebar:** make the pr number the card's only link ([#43](https://github.com/karczews/opencode-pr-sidebar/issues/43)) ([b6923ae](https://github.com/karczews/opencode-pr-sidebar/commit/b6923ae490b8d26c58507cd0c7ae903b72345dee))
+
 ## [0.1.5](https://github.com/karczews/opencode-pr-sidebar/compare/v0.1.4...v0.1.5) (2026-11-21)
 
 
