@@ -268,9 +268,9 @@ test("summarizers map lifecycle and review decisions", () => {
 	assert.equal(lifecycleOf(summaryPR({ state: "CLOSED" })), "Closed");
 	assert.equal(lifecycleOf(summaryPR({ isDraft: true })), "Draft");
 	assert.equal(lifecycleOf(summaryPR({})), "Open");
-	assert.equal(summarizeReview["APPROVED"], "Approved");
-	assert.equal(summarizeReview["CHANGES_REQUESTED"], "Changes requested");
-	assert.equal(summarizeReview["REVIEW_REQUIRED"], "Review required");
+	assert.equal(summarizeReview.APPROVED, "Approved");
+	assert.equal(summarizeReview.CHANGES_REQUESTED, "Changes requested");
+	assert.equal(summarizeReview.REVIEW_REQUIRED, "Review required");
 	assert.equal(summarizeReview[""], "No review decision");
 });
 

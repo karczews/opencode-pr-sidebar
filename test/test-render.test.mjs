@@ -52,7 +52,7 @@ const COUNTS = {
 	},
 };
 
-function setupWorktree({ repo = "git", branch = "feature", gh = "ok" } = {}) {
+function setupWorktree({ repo = "git", branch = "feature", gh = "ok", pr = {} } = {}) {
 	const dir = mkdtempSync(join(tmpdir(), "pr-sidebar-"));
 	const bin = join(dir, "bin");
 	const repoDir = join(dir, "repo");
@@ -92,7 +92,7 @@ function setupWorktree({ repo = "git", branch = "feature", gh = "ok" } = {}) {
 		].join("\n");
 		writeFileSync(join(bin, "gh"), `${script}\n`, { mode: 0o775 });
 
-		writeFileSync(join(dir, "pr.json"), JSON.stringify(PR_VIEW));
+		writeFileSync(join(dir, "pr.json"), JSON.stringify({ ...PR_VIEW, ...pr }));
 		writeFileSync(join(dir, "counts.json"), JSON.stringify(COUNTS));
 	}
 	return { dir, repoDir, bin };
@@ -132,8 +132,19 @@ async function compilePlugin(outDir) {
 	assert.equal(compiled.status, 0, compiled.stderr.toString() || compiled.stdout.toString());
 }
 
+// Distinct, non-white colors for the text tokens the card picks by tone, so render
+// tests can tell the tones apart; every other token stays white.
+const TONE_RGB = {
+	base: [0, 0, 255],
+	muted: [0, 255, 255],
+	success: [0, 255, 0],
+	warning: [255, 255, 0],
+	error: [255, 0, 0],
+};
+
 function makeTheme(RGBA) {
 	const c = () => RGBA.fromInts(255, 255, 255, 255);
+	const tone = (name) => RGBA.fromInts(...TONE_RGB[name], 255);
 	const stateful = () => ({
 		base: c(),
 		hover: c(),
@@ -142,9 +153,9 @@ function makeTheme(RGBA) {
 		state: () => c(),
 	});
 	const feedback = () => ({
-		error: { base: c(), muted: c() },
-		warning: { base: c(), muted: c() },
-		success: { base: c(), muted: c() },
+		error: { base: tone("error"), muted: c() },
+		warning: { base: tone("warning"), muted: c() },
+		success: { base: tone("success"), muted: c() },
 		info: { base: c(), muted: c() },
 	});
 	const markdown = {
@@ -165,8 +176,8 @@ function makeTheme(RGBA) {
 	};
 	return {
 		text: {
-			base: c(),
-			muted: c(),
+			base: tone("base"),
+			muted: tone("muted"),
 			faint: c(),
 			action: {
 				primary: stateful(),
@@ -341,6 +352,17 @@ function findButton(spans, label) {
 	const anchor = findText(spans, "Copy URL");
 	assert.ok(anchor, "actions row must be visible");
 	return findTextOnRow(spans, label, anchor.y);
+}
+
+// Spans above the actions row, so the "Open" button never counts as a status line.
+function cardBodySpans(spans) {
+	const actions = findText(spans, "Copy URL");
+	assert.ok(actions, "actions row must be visible");
+	return spans.lines.slice(0, actions.y).flatMap((line) => line.spans);
+}
+
+function colorsOf(spans, text) {
+	return spans.filter((span) => span.text.trim() === text).map((span) => span.fg.toInts());
 }
 
 async function runCase(options, fn) {
@@ -587,3 +609,37 @@ test("header uses triangle disclosure indicators", async () => {
 		assert.ok(!collapsed.includes("▼"), "collapsed header must not show the expanded triangle");
 	});
 });
+
+// Each status line must take its color from its tone; MERGE_TONE's unit test pins the
+// tone of every merge line, so one blocker stands in for the rest.
+const TONE_CASES = [
+	{ name: "ready", pr: {}, tones: { Open: "base", "Ready to merge": "success" } },
+	{
+		name: "blocked",
+		pr: { mergeStateStatus: "BEHIND" },
+		tones: { "Behind base branch": "warning" },
+	},
+	{
+		name: "closed",
+		pr: { state: "CLOSED" },
+		tones: { Closed: "error", "Closed without merging": "muted" },
+	},
+	{ name: "merged", pr: { state: "MERGED" }, tones: { Merged: "success" } },
+];
+
+for (const { name, pr, tones } of TONE_CASES) {
+	test(`sidebar card colors a ${name} PR's status lines by tone`, async () => {
+		await runCase({ pr }, async (setup) => {
+			const lines = Object.keys(tones);
+			await pollFor(setup, (text) => lines.every((line) => text.includes(line)));
+			const body = cardBodySpans(setup.captureSpans());
+			for (const [line, tone] of Object.entries(tones)) {
+				const colors = colorsOf(body, line);
+				assert.ok(colors.length > 0, `missing ${JSON.stringify(line)}`);
+				for (const color of colors) {
+					assert.deepEqual(color, [...TONE_RGB[tone], 255], `${line} must use the ${tone} tone`);
+				}
+			}
+		});
+	});
+}
