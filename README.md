@@ -1,7 +1,7 @@
 # pr-sidebar
 
 [![check](https://github.com/karczews/opencode-pr-sidebar/actions/workflows/check.yml/badge.svg?branch=main)](https://github.com/karczews/opencode-pr-sidebar/actions/workflows/check.yml?query=branch%3Amain)
-[![npm](https://img.shields.io/npm/v/opencode-pr-sidebar)](https://www.npmjs.com/package/opencode-pr-sidebar)
+[![npm](https://img.shields.io/npm/v/opencode2-pr-sidebar)](https://www.npmjs.com/package/opencode2-pr-sidebar)
 
 Current-branch GitHub pull request card for the OpenCode TUI sidebar.
 
@@ -24,12 +24,12 @@ contract lives in
 ### From npm (recommended)
 
 ```sh
-opencode plugin add opencode-pr-sidebar
+opencode plugin add opencode2-pr-sidebar
 # pin a published version if you prefer:
-opencode plugin add opencode-pr-sidebar@<version>
+opencode plugin add opencode2-pr-sidebar@<version>
 ```
 
-Update later with `opencode plugin update opencode-pr-sidebar`.
+Update later with `opencode plugin update opencode2-pr-sidebar`.
 
 ### From GitHub
 
