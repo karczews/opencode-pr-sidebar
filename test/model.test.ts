@@ -218,7 +218,7 @@ test("fetch helpers use the locked argv shapes", async () => {
 	assert.ok(counts.args.includes("graphql"));
 	const query = counts.args[counts.args.length - 1];
 	assert.ok(query);
-	assert.match(query, /^query=query \{ repository\(owner: "o", name: "r"\)/);
+	assert.match(query, /^query=query \{\s*repository\(owner: "o", name: "r"\)/);
 });
 
 test("detectRepo resolves this repository and rejects non-repositories", async () => {

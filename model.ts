@@ -157,7 +157,15 @@ export function countsQuery(ref: PRRef): string {
 	if (!Number.isInteger(ref.number) || ref.number < 1) {
 		throw new Error("Invalid PR number");
 	}
-	return `query { repository(owner: ${JSON.stringify(ref.owner)}, name: ${JSON.stringify(ref.repo)}) { pullRequest(number: ${ref.number}) { comments(first: 1) { totalCount } reviews(first: 1) { totalCount } reviewThreads(first: 100) { totalCount nodes { isResolved } } } } }`;
+	return `query {
+		repository(owner: ${JSON.stringify(ref.owner)}, name: ${JSON.stringify(ref.repo)}) {
+			pullRequest(number: ${ref.number}) {
+				comments(first: 1) { totalCount }
+				reviews(first: 1) { totalCount }
+				reviewThreads(first: 100) { totalCount nodes { isResolved } }
+			}
+		}
+	}`;
 }
 
 export async function fetchCounts(
@@ -238,6 +246,13 @@ function asNonNegativeInt(value: unknown, label: string): number {
 	return value;
 }
 
+function asPositiveInt(value: unknown, label: string): number {
+	if (typeof value !== "number" || !Number.isInteger(value) || value < 1) {
+		throw new Error(`Invalid PR response: ${label}`);
+	}
+	return value;
+}
+
 export function parsePRView(
 	text: string,
 ): Omit<PullRequest, "unresolvedThreads" | "totalComments"> {
@@ -250,15 +265,13 @@ export function parsePRView(
 	if (!isRecord(data)) {
 		throw new Error("Invalid PR response");
 	}
-	if (!Number.isInteger(data.number) || (data.number as number) < 1) {
-		throw new Error("Invalid PR response: number");
-	}
+	const number = asPositiveInt(data.number, "number");
 	if (data.state !== "OPEN" && data.state !== "CLOSED" && data.state !== "MERGED") {
 		throw new Error("Invalid PR response: state");
 	}
 	const url = asString(data, "url");
 	const parts = splitPRUrl(url);
-	if (parts.number !== data.number) {
+	if (parts.number !== number) {
 		throw new Error("Invalid PR response: url number mismatch");
 	}
 	if (typeof data.isDraft !== "boolean") {
@@ -281,7 +294,7 @@ export function parsePRView(
 		}
 	}
 	return {
-		number: data.number as number,
+		number,
 		url,
 		title: asString(data, "title"),
 		state: data.state,
