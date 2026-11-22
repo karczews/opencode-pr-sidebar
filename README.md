@@ -21,6 +21,16 @@ contract lives in
 
 ## Install
 
+### From npm (recommended)
+
+```sh
+opencode plugin add opencode-pr-sidebar
+# pin a published version if you prefer:
+opencode plugin add opencode-pr-sidebar@<version>
+```
+
+Update later with `opencode plugin update opencode-pr-sidebar`.
+
 ### From GitHub
 
 <!-- x-release-please-start-version -->
@@ -31,7 +41,7 @@ opencode plugin add 'github:karczews/opencode-pr-sidebar#v0.1.5'
 ```
 <!-- x-release-please-end -->
 
-This is a TUI-only plugin — `plugin add` records it in
+Either way, this is a TUI-only plugin — `plugin add` records it in
 `~/.config/opencode/cli.json` automatically (not `opencode.json`). Verify with
 `opencode plugin list`.
 
