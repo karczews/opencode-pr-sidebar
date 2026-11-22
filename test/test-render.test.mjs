@@ -133,7 +133,7 @@ async function compilePlugin(outDir) {
 }
 
 // Distinct, non-white colors for the text tokens the card picks by tone, so render
-// tests can tell the tones apart; every other token stays white.
+// tests can tell the tones apart; every other token except the link stays white.
 const TONE_RGB = {
 	base: [0, 0, 255],
 	muted: [0, 255, 255],
@@ -141,6 +141,9 @@ const TONE_RGB = {
 	warning: [255, 255, 0],
 	error: [255, 0, 0],
 };
+
+// Distinct color for the PR title link, so render tests can tell it from body text.
+const LINK_RGB = [255, 0, 255];
 
 function makeTheme(RGBA) {
 	const c = () => RGBA.fromInts(255, 255, 255, 255);
@@ -161,7 +164,7 @@ function makeTheme(RGBA) {
 	const markdown = {
 		text: c(),
 		heading: c(),
-		link: c(),
+		link: RGBA.fromInts(...LINK_RGB, 255),
 		linkText: c(),
 		code: c(),
 		blockQuote: c(),
@@ -607,6 +610,34 @@ test("header uses triangle disclosure indicators", async () => {
 		const collapsed = await pollFor(setup, (text) => !text.includes("Example smoke PR"));
 		assert.ok(collapsed.includes("▶"), "collapsed header must show a right-pointing triangle");
 		assert.ok(!collapsed.includes("▼"), "collapsed header must not show the expanded triangle");
+	});
+});
+
+test("sidebar card underlines only the PR title link", async () => {
+	await runCase({}, async (setup) => {
+		await pollFor(setup, (text) => text.includes("Example smoke PR"));
+		const { TextAttributes } = await import("@opentui/core");
+		const underlined = (span) => (span.attributes & TextAttributes.UNDERLINE) !== 0;
+		const spans = setup.captureSpans();
+		const body = cardBodySpans(spans);
+		const spansWith = (needle) => body.filter((span) => span.text.includes(needle));
+
+		const title = spansWith("Example smoke PR");
+		assert.ok(title.length > 0, "title must be visible");
+		for (const span of title) {
+			assert.ok(underlined(span), "title must be underlined");
+			assert.deepEqual(span.fg.toInts(), [...LINK_RGB, 255], "title must use the link color");
+		}
+		// Span attributes omit link ids in captures; the renderer keeps them per cell.
+		const at = findText(spans, "Example smoke PR");
+		assert.ok(setup.renderer.getLinkIdAt(at.x, at.y) > 0, "title must stay a terminal hyperlink");
+		for (const needle of ["#42", "feature"]) {
+			const spans = spansWith(needle);
+			assert.ok(spans.length > 0, `missing ${JSON.stringify(needle)}`);
+			for (const span of spans) {
+				assert.ok(!underlined(span), `${needle} must not be underlined`);
+			}
+		}
 	});
 });
 

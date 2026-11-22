@@ -102,7 +102,10 @@ function PrCard(props: {
 						void props.onOpen();
 					}}
 				>
-					<b>#{props.pr.number}</b> <a href={props.pr.url}>{clean(props.pr.title)}</a>
+					<b>#{props.pr.number}</b>{" "}
+					<a href={props.pr.url}>
+						<u>{clean(props.pr.title)}</u>
+					</a>
 				</text>
 				<text fg={props.theme.text.muted}>
 					{clean(props.pr.headRefName)} {"->"} {clean(props.pr.baseRefName)}

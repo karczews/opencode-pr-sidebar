@@ -80,10 +80,11 @@ function PrCard(props) {
       _el$6 = _$createTextNode(`#`),
       _el$7 = _$createTextNode(` `),
       _el$8 = _$createElement("a"),
-      _el$9 = _$createElement("text"),
-      _el$0 = _$createTextNode(` -> `);
+      _el$9 = _$createElement("u"),
+      _el$0 = _$createElement("text"),
+      _el$1 = _$createTextNode(` -> `);
     _$insertNode(_el$3, _el$4);
-    _$insertNode(_el$3, _el$9);
+    _$insertNode(_el$3, _el$0);
     _$insertNode(_el$4, _el$5);
     _$insertNode(_el$4, _el$7);
     _$insertNode(_el$4, _el$8);
@@ -96,17 +97,18 @@ function PrCard(props) {
     });
     _$insertNode(_el$5, _el$6);
     _$insert(_el$5, () => props.pr.number, null);
-    _$insert(_el$8, () => clean(props.pr.title));
-    _$insertNode(_el$9, _el$0);
-    _$insert(_el$9, () => clean(props.pr.headRefName), _el$0);
-    _$insert(_el$9, () => clean(props.pr.baseRefName), null);
+    _$insertNode(_el$8, _el$9);
+    _$insert(_el$9, () => clean(props.pr.title));
+    _$insertNode(_el$0, _el$1);
+    _$insert(_el$0, () => clean(props.pr.headRefName), _el$1);
+    _$insert(_el$0, () => clean(props.pr.baseRefName), null);
     _$effect(_p$ => {
       var _v$3 = props.theme.markdown.link,
         _v$4 = props.pr.url,
         _v$5 = props.theme.text.muted;
       _v$3 !== _p$.e && (_p$.e = _$setProp(_el$4, "fg", _v$3, _p$.e));
       _v$4 !== _p$.t && (_p$.t = _$setProp(_el$8, "href", _v$4, _p$.t));
-      _v$5 !== _p$.a && (_p$.a = _$setProp(_el$9, "fg", _v$5, _p$.a));
+      _v$5 !== _p$.a && (_p$.a = _$setProp(_el$0, "fg", _v$5, _p$.a));
       return _p$;
     }, {
       e: undefined,
@@ -115,32 +117,32 @@ function PrCard(props) {
     });
     return _el$3;
   })(), (() => {
-    var _el$11 = _$createElement("box"),
-      _el$12 = _$createElement("text"),
+    var _el$12 = _$createElement("box"),
       _el$13 = _$createElement("text"),
-      _el$14 = _$createTextNode(`Review: `),
-      _el$15 = _$createElement("text"),
-      _el$16 = _$createElement("b"),
-      _el$17 = _$createElement("text");
-    _$insertNode(_el$11, _el$12);
-    _$insertNode(_el$11, _el$13);
-    _$insertNode(_el$11, _el$15);
-    _$insertNode(_el$11, _el$17);
-    _$insert(_el$12, () => summary().lifecycle);
-    _$insertNode(_el$13, _el$14);
-    _$insert(_el$13, () => summary().review, null);
-    _$insertNode(_el$15, _el$16);
-    _$insert(_el$16, () => summary().merge);
-    _$insert(_el$17, () => checksLineOf(summary().checks));
+      _el$14 = _$createElement("text"),
+      _el$15 = _$createTextNode(`Review: `),
+      _el$16 = _$createElement("text"),
+      _el$17 = _$createElement("b"),
+      _el$18 = _$createElement("text");
+    _$insertNode(_el$12, _el$13);
+    _$insertNode(_el$12, _el$14);
+    _$insertNode(_el$12, _el$16);
+    _$insertNode(_el$12, _el$18);
+    _$insert(_el$13, () => summary().lifecycle);
+    _$insertNode(_el$14, _el$15);
+    _$insert(_el$14, () => summary().review, null);
+    _$insertNode(_el$16, _el$17);
+    _$insert(_el$17, () => summary().merge);
+    _$insert(_el$18, () => checksLineOf(summary().checks));
     _$effect(_p$ => {
       var _v$6 = toneColor(props.theme, lifecycleTone(props.pr.state)),
         _v$7 = props.theme.text.muted,
         _v$8 = toneColor(props.theme, MERGE_TONE[summary().merge]),
         _v$9 = summary().checks.failed > 0 ? props.theme.text.feedback.warning.base : props.theme.text.muted;
-      _v$6 !== _p$.e && (_p$.e = _$setProp(_el$12, "fg", _v$6, _p$.e));
-      _v$7 !== _p$.t && (_p$.t = _$setProp(_el$13, "fg", _v$7, _p$.t));
-      _v$8 !== _p$.a && (_p$.a = _$setProp(_el$15, "fg", _v$8, _p$.a));
-      _v$9 !== _p$.o && (_p$.o = _$setProp(_el$17, "fg", _v$9, _p$.o));
+      _v$6 !== _p$.e && (_p$.e = _$setProp(_el$13, "fg", _v$6, _p$.e));
+      _v$7 !== _p$.t && (_p$.t = _$setProp(_el$14, "fg", _v$7, _p$.t));
+      _v$8 !== _p$.a && (_p$.a = _$setProp(_el$16, "fg", _v$8, _p$.a));
+      _v$9 !== _p$.o && (_p$.o = _$setProp(_el$18, "fg", _v$9, _p$.o));
       return _p$;
     }, {
       e: undefined,
@@ -148,38 +150,38 @@ function PrCard(props) {
       a: undefined,
       o: undefined
     });
-    return _el$11;
+    return _el$12;
   })(), (() => {
-    var _el$18 = _$createElement("box"),
-      _el$19 = _$createElement("text"),
-      _el$20 = _$createTextNode(`+`),
-      _el$21 = _$createTextNode(` / -`),
-      _el$22 = _$createTextNode(` / `),
-      _el$24 = _$createTextNode(` files`),
-      _el$25 = _$createElement("text"),
-      _el$26 = _$createTextNode(` unresolved / `),
-      _el$27 = _$createTextNode(` total comments`),
-      _el$28 = _$createElement("text"),
-      _el$29 = _$createTextNode(`Updated `),
-      _el$30 = _$createElement("text");
-    _$insertNode(_el$18, _el$19);
-    _$insertNode(_el$18, _el$25);
-    _$insertNode(_el$18, _el$28);
-    _$insertNode(_el$18, _el$30);
+    var _el$19 = _$createElement("box"),
+      _el$20 = _$createElement("text"),
+      _el$21 = _$createTextNode(`+`),
+      _el$22 = _$createTextNode(` / -`),
+      _el$23 = _$createTextNode(` / `),
+      _el$25 = _$createTextNode(` files`),
+      _el$26 = _$createElement("text"),
+      _el$27 = _$createTextNode(` unresolved / `),
+      _el$28 = _$createTextNode(` total comments`),
+      _el$29 = _$createElement("text"),
+      _el$30 = _$createTextNode(`Updated `),
+      _el$31 = _$createElement("text");
     _$insertNode(_el$19, _el$20);
-    _$insertNode(_el$19, _el$21);
-    _$insertNode(_el$19, _el$22);
-    _$insertNode(_el$19, _el$24);
-    _$insert(_el$19, () => props.pr.additions.toLocaleString(), _el$21);
-    _$insert(_el$19, () => props.pr.deletions.toLocaleString(), _el$22);
-    _$insert(_el$19, () => props.pr.changedFiles, _el$24);
-    _$insertNode(_el$25, _el$26);
-    _$insertNode(_el$25, _el$27);
-    _$insert(_el$25, () => props.pr.unresolvedThreads, _el$26);
-    _$insert(_el$25, () => props.pr.totalComments, _el$27);
-    _$insertNode(_el$28, _el$29);
-    _$insert(_el$28, () => ageOf(props.pr.updatedAt, props.now), null);
-    _$insert(_el$30, (() => {
+    _$insertNode(_el$19, _el$26);
+    _$insertNode(_el$19, _el$29);
+    _$insertNode(_el$19, _el$31);
+    _$insertNode(_el$20, _el$21);
+    _$insertNode(_el$20, _el$22);
+    _$insertNode(_el$20, _el$23);
+    _$insertNode(_el$20, _el$25);
+    _$insert(_el$20, () => props.pr.additions.toLocaleString(), _el$22);
+    _$insert(_el$20, () => props.pr.deletions.toLocaleString(), _el$23);
+    _$insert(_el$20, () => props.pr.changedFiles, _el$25);
+    _$insertNode(_el$26, _el$27);
+    _$insertNode(_el$26, _el$28);
+    _$insert(_el$26, () => props.pr.unresolvedThreads, _el$27);
+    _$insert(_el$26, () => props.pr.totalComments, _el$28);
+    _$insertNode(_el$29, _el$30);
+    _$insert(_el$29, () => ageOf(props.pr.updatedAt, props.now), null);
+    _$insert(_el$31, (() => {
       var _c$ = _$memo(() => !!props.loading);
       return () => _c$() ? "Refreshing..." : `Checked ${ageOf(props.fetchedAt, props.now)}`;
     })());
@@ -188,10 +190,10 @@ function PrCard(props) {
         _v$1 = props.theme.text.muted,
         _v$10 = props.theme.text.muted,
         _v$11 = props.theme.text.muted;
-      _v$0 !== _p$.e && (_p$.e = _$setProp(_el$19, "fg", _v$0, _p$.e));
-      _v$1 !== _p$.t && (_p$.t = _$setProp(_el$25, "fg", _v$1, _p$.t));
-      _v$10 !== _p$.a && (_p$.a = _$setProp(_el$28, "fg", _v$10, _p$.a));
-      _v$11 !== _p$.o && (_p$.o = _$setProp(_el$30, "fg", _v$11, _p$.o));
+      _v$0 !== _p$.e && (_p$.e = _$setProp(_el$20, "fg", _v$0, _p$.e));
+      _v$1 !== _p$.t && (_p$.t = _$setProp(_el$26, "fg", _v$1, _p$.t));
+      _v$10 !== _p$.a && (_p$.a = _$setProp(_el$29, "fg", _v$10, _p$.a));
+      _v$11 !== _p$.o && (_p$.o = _$setProp(_el$31, "fg", _v$11, _p$.o));
       return _p$;
     }, {
       e: undefined,
@@ -199,7 +201,7 @@ function PrCard(props) {
       a: undefined,
       o: undefined
     });
-    return _el$18;
+    return _el$19;
   })()];
 }
 export default Plugin.define({
@@ -273,29 +275,29 @@ export default Plugin.define({
       });
       // A stable root keeps the slot mounted while the first lookup is in flight.
       return (() => {
-        var _el$31 = _$createElement("box"),
-          _el$32 = _$createElement("box"),
-          _el$33 = _$createElement("text"),
+        var _el$32 = _$createElement("box"),
+          _el$33 = _$createElement("box"),
           _el$34 = _$createElement("text"),
-          _el$35 = _$createElement("b");
-        _$insertNode(_el$31, _el$32);
-        _$setProp(_el$31, "gap", 1);
-        _$setProp(_el$31, "flexShrink", 0);
+          _el$35 = _$createElement("text"),
+          _el$36 = _$createElement("b");
         _$insertNode(_el$32, _el$33);
-        _$insertNode(_el$32, _el$34);
-        _$setProp(_el$32, "flexDirection", "row");
         _$setProp(_el$32, "gap", 1);
-        _$setProp(_el$32, "onMouseDown", event => {
+        _$setProp(_el$32, "flexShrink", 0);
+        _$insertNode(_el$33, _el$34);
+        _$insertNode(_el$33, _el$35);
+        _$setProp(_el$33, "flexDirection", "row");
+        _$setProp(_el$33, "gap", 1);
+        _$setProp(_el$33, "onMouseDown", event => {
           if (event.button !== 0) {
             return;
           }
           event.stopPropagation();
           setExpanded(value => !value);
         });
-        _$insert(_el$33, () => expanded() ? "▼" : "▶");
-        _$insertNode(_el$34, _el$35);
-        _$insertNode(_el$35, _$createTextNode(`Pull Request`));
-        _$insert(_el$31, (() => {
+        _$insert(_el$34, () => expanded() ? "▼" : "▶");
+        _$insertNode(_el$35, _el$36);
+        _$insertNode(_el$36, _$createTextNode(`Pull Request`));
+        _$insert(_el$32, (() => {
           var _c$2 = _$memo(() => !!expanded());
           return () => _c$2() ? [_$createComponent(Show, {
             get when() {
@@ -320,17 +322,17 @@ export default Plugin.define({
               onOpen: open
             })
           }), _$memo(() => _$memo(() => !!state().error)() ? (() => {
-            var _el$38 = _$createElement("text");
-            _$insert(_el$38, () => pr() ? "STALE: " : "", null);
-            _$insert(_el$38, () => state().error, null);
-            _$effect(_$p => _$setProp(_el$38, "fg", theme().text.feedback.warning.base, _$p));
-            return _el$38;
+            var _el$39 = _$createElement("text");
+            _$insert(_el$39, () => pr() ? "STALE: " : "", null);
+            _$insert(_el$39, () => state().error, null);
+            _$effect(_$p => _$setProp(_el$39, "fg", theme().text.feedback.warning.base, _$p));
+            return _el$39;
           })() : null), (() => {
-            var _el$37 = _$createElement("box");
-            _$setProp(_el$37, "flexDirection", "row");
-            _$setProp(_el$37, "gap", 1);
-            _$setProp(_el$37, "flexWrap", "wrap");
-            _$insert(_el$37, _$createComponent(ActionButton, {
+            var _el$38 = _$createElement("box");
+            _$setProp(_el$38, "flexDirection", "row");
+            _$setProp(_el$38, "gap", 1);
+            _$setProp(_el$38, "flexWrap", "wrap");
+            _$insert(_el$38, _$createComponent(ActionButton, {
               get label() {
                 return state().loading ? "Refreshing" : "Refresh";
               },
@@ -342,37 +344,37 @@ export default Plugin.define({
               },
               onPress: () => monitor?.tick(true)
             }), null);
-            _$insert(_el$37, _$createComponent(ActionButton, {
+            _$insert(_el$38, _$createComponent(ActionButton, {
               label: "Copy URL",
               get theme() {
                 return theme();
               },
               onPress: () => void copy()
             }), null);
-            _$insert(_el$37, _$createComponent(ActionButton, {
+            _$insert(_el$38, _$createComponent(ActionButton, {
               label: "Open",
               get theme() {
                 return theme();
               },
               onPress: () => void open()
             }), null);
-            return _el$37;
+            return _el$38;
           })()] : null;
         })(), null);
         _$effect(_p$ => {
           var _v$12 = Boolean(pr() || state().error),
             _v$13 = theme().text.base,
             _v$14 = theme().text.base;
-          _v$12 !== _p$.e && (_p$.e = _$setProp(_el$31, "visible", _v$12, _p$.e));
-          _v$13 !== _p$.t && (_p$.t = _$setProp(_el$33, "fg", _v$13, _p$.t));
-          _v$14 !== _p$.a && (_p$.a = _$setProp(_el$34, "fg", _v$14, _p$.a));
+          _v$12 !== _p$.e && (_p$.e = _$setProp(_el$32, "visible", _v$12, _p$.e));
+          _v$13 !== _p$.t && (_p$.t = _$setProp(_el$34, "fg", _v$13, _p$.t));
+          _v$14 !== _p$.a && (_p$.a = _$setProp(_el$35, "fg", _v$14, _p$.a));
           return _p$;
         }, {
           e: undefined,
           t: undefined,
           a: undefined
         });
-        return _el$31;
+        return _el$32;
       })();
     }
     context.ui.slot({
