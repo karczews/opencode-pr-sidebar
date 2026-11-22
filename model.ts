@@ -418,6 +418,17 @@ export function summarizeChecks(rollup: CheckEntry[]): CheckCounts {
 	return counts;
 }
 
+export function checksLineOf(counts: CheckCounts): string {
+	if (counts.passed + counts.failed + counts.pending + counts.skipped === 0) {
+		return "No checks reported";
+	}
+	let line = `Checks: ${counts.passed} passed / ${counts.failed} failed / ${counts.pending} pending`;
+	if (counts.skipped > 0) {
+		line += ` / ${counts.skipped} skipped`;
+	}
+	return line;
+}
+
 export const summarizeReview: Record<ReviewDecision, string> = {
 	APPROVED: "Approved",
 	CHANGES_REQUESTED: "Changes requested",

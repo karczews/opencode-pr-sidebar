@@ -5,7 +5,7 @@ import type { RGBA } from "@opentui/core";
 import { createMemo, createSignal, onCleanup, onMount, Show } from "solid-js";
 import {
 	ageOf,
-	type CheckCounts,
+	checksLineOf,
 	clean,
 	copyToClipboard,
 	createMonitor,
@@ -44,6 +44,103 @@ function lifecycleTone(state: PullRequest["state"]): Tone {
 		return "error";
 	}
 	return "base";
+}
+
+function ActionButton(props: {
+	label: string;
+	theme: ResolvedTheme;
+	disabled?: boolean;
+	onPress: () => void;
+}) {
+	const [over, setOver] = createSignal(false);
+	const disabled = () => props.disabled === true;
+	const highlighted = () => over() && !disabled();
+	return (
+		<box
+			height={1}
+			flexShrink={0}
+			paddingLeft={1}
+			paddingRight={1}
+			backgroundColor={
+				highlighted() ? props.theme.background.raised.high : props.theme.background.raised.base
+			}
+			onMouseOver={() => setOver(true)}
+			onMouseOut={() => setOver(false)}
+			onMouseUp={(event) => {
+				if (event.button !== 0 || disabled()) {
+					return;
+				}
+				event.stopPropagation();
+				props.onPress();
+			}}
+		>
+			<text fg={disabled() ? props.theme.text.faint : props.theme.text.base}>{props.label}</text>
+		</box>
+	);
+}
+
+function PrCard(props: {
+	pr: PullRequest;
+	now: number;
+	loading: boolean;
+	fetchedAt: number;
+	theme: ResolvedTheme;
+	onOpen: () => void;
+}) {
+	// One memoized summary per card: the merge, review, and checks lines share it.
+	const summary = createMemo(() => summarize(props.pr));
+	return (
+		<>
+			<box>
+				<text
+					fg={props.theme.markdown.link}
+					onMouseUp={(event) => {
+						if (event.button !== 0) {
+							return;
+						}
+						event.stopPropagation();
+						void props.onOpen();
+					}}
+				>
+					<b>#{props.pr.number}</b> <a href={props.pr.url}>{clean(props.pr.title)}</a>
+				</text>
+				<text fg={props.theme.text.muted}>
+					{clean(props.pr.headRefName)} {"->"} {clean(props.pr.baseRefName)}
+				</text>
+			</box>
+			<box>
+				<text fg={toneColor(props.theme, lifecycleTone(props.pr.state))}>
+					{summary().lifecycle}
+				</text>
+				<text fg={props.theme.text.muted}>Review: {summary().review}</text>
+				<text fg={toneColor(props.theme, MERGE_TONE[summary().merge])}>
+					<b>{summary().merge}</b>
+				</text>
+				<text
+					fg={
+						summary().checks.failed > 0
+							? props.theme.text.feedback.warning.base
+							: props.theme.text.muted
+					}
+				>
+					{checksLineOf(summary().checks)}
+				</text>
+			</box>
+			<box>
+				<text fg={props.theme.text.base}>
+					+{props.pr.additions.toLocaleString()} / -{props.pr.deletions.toLocaleString()} /{" "}
+					{props.pr.changedFiles} files
+				</text>
+				<text fg={props.theme.text.muted}>
+					{props.pr.unresolvedThreads} unresolved / {props.pr.totalComments} total comments
+				</text>
+				<text fg={props.theme.text.muted}>Updated {ageOf(props.pr.updatedAt, props.now)}</text>
+				<text fg={props.theme.text.muted}>
+					{props.loading ? "Refreshing..." : `Checked ${ageOf(props.fetchedAt, props.now)}`}
+				</text>
+			</box>
+		</>
+	);
 }
 
 export default Plugin.define({
@@ -98,92 +195,6 @@ export default Plugin.define({
 			}
 		}
 
-		function ActionButton(props: { label: string; disabled?: boolean; onPress: () => void }) {
-			const [over, setOver] = createSignal(false);
-			const disabled = () => props.disabled === true;
-			const highlighted = () => over() && !disabled();
-			return (
-				<box
-					height={1}
-					flexShrink={0}
-					paddingLeft={1}
-					paddingRight={1}
-					backgroundColor={
-						highlighted() ? theme().background.raised.high : theme().background.raised.base
-					}
-					onMouseOver={() => setOver(true)}
-					onMouseOut={() => setOver(false)}
-					onMouseUp={(event) => {
-						if (event.button !== 0 || disabled()) {
-							return;
-						}
-						event.stopPropagation();
-						props.onPress();
-					}}
-				>
-					<text fg={disabled() ? theme().text.faint : theme().text.base}>{props.label}</text>
-				</box>
-			);
-		}
-
-		function PrCard(props: { p: PullRequest }) {
-			// One memoized summary per card: the previous code derived the merge,
-			// review, and checks lines with separate calls.
-			const summary = createMemo(() => summarize(props.p));
-			return (
-				<>
-					<box>
-						<text
-							fg={theme().markdown.link}
-							onMouseUp={(event) => {
-								if (event.button !== 0) {
-									return;
-								}
-								event.stopPropagation();
-								void open();
-							}}
-						>
-							<b>#{props.p.number}</b> <a href={props.p.url}>{clean(props.p.title)}</a>
-						</text>
-						<text fg={theme().text.muted}>
-							{clean(props.p.headRefName)} -&gt; {clean(props.p.baseRefName)}
-						</text>
-					</box>
-					<box>
-						<text fg={toneColor(theme(), lifecycleTone(props.p.state))}>{summary().lifecycle}</text>
-						<text fg={theme().text.muted}>Review: {summary().review}</text>
-						<text fg={toneColor(theme(), MERGE_TONE[summary().merge])}>
-							<b>{summary().merge}</b>
-						</text>
-						<text
-							fg={
-								summary().checks.failed > 0
-									? theme().text.feedback.warning.base
-									: theme().text.muted
-							}
-						>
-							{checksLine(summary().checks)}
-						</text>
-					</box>
-					<box>
-						<text fg={theme().text.base}>
-							+{props.p.additions.toLocaleString()} / -{props.p.deletions.toLocaleString()} /{" "}
-							{props.p.changedFiles} files
-						</text>
-						<text fg={theme().text.muted}>
-							{props.p.unresolvedThreads} unresolved / {props.p.totalComments} total comments
-						</text>
-						<text fg={theme().text.muted}>Updated {ageOf(props.p.updatedAt, state().now)}</text>
-						<text fg={theme().text.muted}>
-							{state().loading
-								? "Refreshing..."
-								: `Checked ${ageOf(state().fetchedAt, state().now)}`}
-						</text>
-					</box>
-				</>
-			);
-		}
-
 		function Card() {
 			onMount(() => {
 				monitor = createMonitor({ directory, publish: setState });
@@ -220,7 +231,18 @@ export default Plugin.define({
 					</box>
 					{expanded() ? (
 						<>
-							<Show when={pr()}>{(p) => <PrCard p={p()} />}</Show>
+							<Show when={pr()}>
+								{(p) => (
+									<PrCard
+										pr={p()}
+										now={state().now}
+										loading={state().loading}
+										fetchedAt={state().fetchedAt}
+										theme={theme()}
+										onOpen={open}
+									/>
+								)}
+							</Show>
 							{state().error ? (
 								<text fg={theme().text.feedback.warning.base}>
 									{pr() ? "STALE: " : ""}
@@ -230,11 +252,12 @@ export default Plugin.define({
 							<box flexDirection="row" gap={1} flexWrap="wrap">
 								<ActionButton
 									label={state().loading ? "Refreshing" : "Refresh"}
+									theme={theme()}
 									disabled={state().loading}
 									onPress={() => monitor?.tick(true)}
 								/>
-								<ActionButton label="Copy URL" onPress={() => void copy()} />
-								<ActionButton label="Open" onPress={() => void open()} />
+								<ActionButton label="Copy URL" theme={theme()} onPress={() => void copy()} />
+								<ActionButton label="Open" theme={theme()} onPress={() => void open()} />
 							</box>
 						</>
 					) : null}
@@ -286,14 +309,3 @@ export default Plugin.define({
 		};
 	},
 });
-
-function checksLine(counts: CheckCounts): string {
-	if (counts.passed + counts.failed + counts.pending + counts.skipped === 0) {
-		return "No checks reported";
-	}
-	let line = `Checks: ${counts.passed} passed / ${counts.failed} failed / ${counts.pending} pending`;
-	if (counts.skipped > 0) {
-		line += ` / ${counts.skipped} skipped`;
-	}
-	return line;
-}

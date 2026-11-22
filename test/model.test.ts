@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
 	ageOf,
+	checksLineOf,
 	clean,
 	copyToClipboard,
 	countsQuery,
@@ -351,6 +352,21 @@ test("summarizeChecks aggregates without inventing results", () => {
 		{ __typename: "StatusContext", state: "SKIPPED" },
 	]);
 	assert.deepEqual(counts, { passed: 2, failed: 8, pending: 3, skipped: 3 });
+});
+
+test("checksLineOf summarizes the check counts", () => {
+	assert.equal(
+		checksLineOf({ passed: 0, failed: 0, pending: 0, skipped: 0 }),
+		"No checks reported",
+	);
+	assert.equal(
+		checksLineOf({ passed: 1, failed: 1, pending: 0, skipped: 0 }),
+		"Checks: 1 passed / 1 failed / 0 pending",
+	);
+	assert.equal(
+		checksLineOf({ passed: 2, failed: 0, pending: 1, skipped: 3 }),
+		"Checks: 2 passed / 0 failed / 1 pending / 3 skipped",
+	);
 });
 
 test("summarize composes the card lines", () => {

@@ -303,6 +303,16 @@ export function summarizeChecks(rollup) {
     }
     return counts;
 }
+export function checksLineOf(counts) {
+    if (counts.passed + counts.failed + counts.pending + counts.skipped === 0) {
+        return "No checks reported";
+    }
+    let line = `Checks: ${counts.passed} passed / ${counts.failed} failed / ${counts.pending} pending`;
+    if (counts.skipped > 0) {
+        line += ` / ${counts.skipped} skipped`;
+    }
+    return line;
+}
 export const summarizeReview = {
     APPROVED: "Approved",
     CHANGES_REQUESTED: "Changes requested",

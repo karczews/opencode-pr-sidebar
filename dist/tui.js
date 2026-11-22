@@ -9,7 +9,7 @@ import { createElement as _$createElement } from "opentui:runtime-module:%40open
 /** @jsxImportSource @opentui/solid */
 import { Plugin } from "opentui:runtime-module:%40opencode%2Fplugin%2Ftui";
 import { createMemo, createSignal, onCleanup, onMount, Show } from "opentui:runtime-module:solid-js";
-import { ageOf, clean, copyToClipboard, createMonitor, MERGE_TONE, openBrowser, summarize } from "./model.js";
+import { ageOf, checksLineOf, clean, copyToClipboard, createMonitor, MERGE_TONE, openBrowser, summarize } from "./model.js";
 const POLL_MS = 5000;
 function toneColor(theme, tone) {
   if (tone === "success") {
@@ -34,6 +34,173 @@ function lifecycleTone(state) {
     return "error";
   }
   return "base";
+}
+function ActionButton(props) {
+  const [over, setOver] = createSignal(false);
+  const disabled = () => props.disabled === true;
+  const highlighted = () => over() && !disabled();
+  return (() => {
+    var _el$ = _$createElement("box"),
+      _el$2 = _$createElement("text");
+    _$insertNode(_el$, _el$2);
+    _$setProp(_el$, "height", 1);
+    _$setProp(_el$, "flexShrink", 0);
+    _$setProp(_el$, "paddingLeft", 1);
+    _$setProp(_el$, "paddingRight", 1);
+    _$setProp(_el$, "onMouseOver", () => setOver(true));
+    _$setProp(_el$, "onMouseOut", () => setOver(false));
+    _$setProp(_el$, "onMouseUp", event => {
+      if (event.button !== 0 || disabled()) {
+        return;
+      }
+      event.stopPropagation();
+      props.onPress();
+    });
+    _$insert(_el$2, () => props.label);
+    _$effect(_p$ => {
+      var _v$ = highlighted() ? props.theme.background.raised.high : props.theme.background.raised.base,
+        _v$2 = disabled() ? props.theme.text.faint : props.theme.text.base;
+      _v$ !== _p$.e && (_p$.e = _$setProp(_el$, "backgroundColor", _v$, _p$.e));
+      _v$2 !== _p$.t && (_p$.t = _$setProp(_el$2, "fg", _v$2, _p$.t));
+      return _p$;
+    }, {
+      e: undefined,
+      t: undefined
+    });
+    return _el$;
+  })();
+}
+function PrCard(props) {
+  // One memoized summary per card: the merge, review, and checks lines share it.
+  const summary = createMemo(() => summarize(props.pr));
+  return [(() => {
+    var _el$3 = _$createElement("box"),
+      _el$4 = _$createElement("text"),
+      _el$5 = _$createElement("b"),
+      _el$6 = _$createTextNode(`#`),
+      _el$7 = _$createTextNode(` `),
+      _el$8 = _$createElement("a"),
+      _el$9 = _$createElement("text"),
+      _el$0 = _$createTextNode(` -> `);
+    _$insertNode(_el$3, _el$4);
+    _$insertNode(_el$3, _el$9);
+    _$insertNode(_el$4, _el$5);
+    _$insertNode(_el$4, _el$7);
+    _$insertNode(_el$4, _el$8);
+    _$setProp(_el$4, "onMouseUp", event => {
+      if (event.button !== 0) {
+        return;
+      }
+      event.stopPropagation();
+      void props.onOpen();
+    });
+    _$insertNode(_el$5, _el$6);
+    _$insert(_el$5, () => props.pr.number, null);
+    _$insert(_el$8, () => clean(props.pr.title));
+    _$insertNode(_el$9, _el$0);
+    _$insert(_el$9, () => clean(props.pr.headRefName), _el$0);
+    _$insert(_el$9, () => clean(props.pr.baseRefName), null);
+    _$effect(_p$ => {
+      var _v$3 = props.theme.markdown.link,
+        _v$4 = props.pr.url,
+        _v$5 = props.theme.text.muted;
+      _v$3 !== _p$.e && (_p$.e = _$setProp(_el$4, "fg", _v$3, _p$.e));
+      _v$4 !== _p$.t && (_p$.t = _$setProp(_el$8, "href", _v$4, _p$.t));
+      _v$5 !== _p$.a && (_p$.a = _$setProp(_el$9, "fg", _v$5, _p$.a));
+      return _p$;
+    }, {
+      e: undefined,
+      t: undefined,
+      a: undefined
+    });
+    return _el$3;
+  })(), (() => {
+    var _el$11 = _$createElement("box"),
+      _el$12 = _$createElement("text"),
+      _el$13 = _$createElement("text"),
+      _el$14 = _$createTextNode(`Review: `),
+      _el$15 = _$createElement("text"),
+      _el$16 = _$createElement("b"),
+      _el$17 = _$createElement("text");
+    _$insertNode(_el$11, _el$12);
+    _$insertNode(_el$11, _el$13);
+    _$insertNode(_el$11, _el$15);
+    _$insertNode(_el$11, _el$17);
+    _$insert(_el$12, () => summary().lifecycle);
+    _$insertNode(_el$13, _el$14);
+    _$insert(_el$13, () => summary().review, null);
+    _$insertNode(_el$15, _el$16);
+    _$insert(_el$16, () => summary().merge);
+    _$insert(_el$17, () => checksLineOf(summary().checks));
+    _$effect(_p$ => {
+      var _v$6 = toneColor(props.theme, lifecycleTone(props.pr.state)),
+        _v$7 = props.theme.text.muted,
+        _v$8 = toneColor(props.theme, MERGE_TONE[summary().merge]),
+        _v$9 = summary().checks.failed > 0 ? props.theme.text.feedback.warning.base : props.theme.text.muted;
+      _v$6 !== _p$.e && (_p$.e = _$setProp(_el$12, "fg", _v$6, _p$.e));
+      _v$7 !== _p$.t && (_p$.t = _$setProp(_el$13, "fg", _v$7, _p$.t));
+      _v$8 !== _p$.a && (_p$.a = _$setProp(_el$15, "fg", _v$8, _p$.a));
+      _v$9 !== _p$.o && (_p$.o = _$setProp(_el$17, "fg", _v$9, _p$.o));
+      return _p$;
+    }, {
+      e: undefined,
+      t: undefined,
+      a: undefined,
+      o: undefined
+    });
+    return _el$11;
+  })(), (() => {
+    var _el$18 = _$createElement("box"),
+      _el$19 = _$createElement("text"),
+      _el$20 = _$createTextNode(`+`),
+      _el$21 = _$createTextNode(` / -`),
+      _el$22 = _$createTextNode(` / `),
+      _el$24 = _$createTextNode(` files`),
+      _el$25 = _$createElement("text"),
+      _el$26 = _$createTextNode(` unresolved / `),
+      _el$27 = _$createTextNode(` total comments`),
+      _el$28 = _$createElement("text"),
+      _el$29 = _$createTextNode(`Updated `),
+      _el$30 = _$createElement("text");
+    _$insertNode(_el$18, _el$19);
+    _$insertNode(_el$18, _el$25);
+    _$insertNode(_el$18, _el$28);
+    _$insertNode(_el$18, _el$30);
+    _$insertNode(_el$19, _el$20);
+    _$insertNode(_el$19, _el$21);
+    _$insertNode(_el$19, _el$22);
+    _$insertNode(_el$19, _el$24);
+    _$insert(_el$19, () => props.pr.additions.toLocaleString(), _el$21);
+    _$insert(_el$19, () => props.pr.deletions.toLocaleString(), _el$22);
+    _$insert(_el$19, () => props.pr.changedFiles, _el$24);
+    _$insertNode(_el$25, _el$26);
+    _$insertNode(_el$25, _el$27);
+    _$insert(_el$25, () => props.pr.unresolvedThreads, _el$26);
+    _$insert(_el$25, () => props.pr.totalComments, _el$27);
+    _$insertNode(_el$28, _el$29);
+    _$insert(_el$28, () => ageOf(props.pr.updatedAt, props.now), null);
+    _$insert(_el$30, (() => {
+      var _c$ = _$memo(() => !!props.loading);
+      return () => _c$() ? "Refreshing..." : `Checked ${ageOf(props.fetchedAt, props.now)}`;
+    })());
+    _$effect(_p$ => {
+      var _v$0 = props.theme.text.base,
+        _v$1 = props.theme.text.muted,
+        _v$10 = props.theme.text.muted,
+        _v$11 = props.theme.text.muted;
+      _v$0 !== _p$.e && (_p$.e = _$setProp(_el$19, "fg", _v$0, _p$.e));
+      _v$1 !== _p$.t && (_p$.t = _$setProp(_el$25, "fg", _v$1, _p$.t));
+      _v$10 !== _p$.a && (_p$.a = _$setProp(_el$28, "fg", _v$10, _p$.a));
+      _v$11 !== _p$.o && (_p$.o = _$setProp(_el$30, "fg", _v$11, _p$.o));
+      return _p$;
+    }, {
+      e: undefined,
+      t: undefined,
+      a: undefined,
+      o: undefined
+    });
+    return _el$18;
+  })()];
 }
 export default Plugin.define({
   id: "pr-sidebar",
@@ -86,174 +253,6 @@ export default Plugin.define({
         toast(ok ? "PR URL copied" : "Could not copy PR URL", ok ? "success" : "error");
       }
     }
-    function ActionButton(props) {
-      const [over, setOver] = createSignal(false);
-      const disabled = () => props.disabled === true;
-      const highlighted = () => over() && !disabled();
-      return (() => {
-        var _el$ = _$createElement("box"),
-          _el$2 = _$createElement("text");
-        _$insertNode(_el$, _el$2);
-        _$setProp(_el$, "height", 1);
-        _$setProp(_el$, "flexShrink", 0);
-        _$setProp(_el$, "paddingLeft", 1);
-        _$setProp(_el$, "paddingRight", 1);
-        _$setProp(_el$, "onMouseOver", () => setOver(true));
-        _$setProp(_el$, "onMouseOut", () => setOver(false));
-        _$setProp(_el$, "onMouseUp", event => {
-          if (event.button !== 0 || disabled()) {
-            return;
-          }
-          event.stopPropagation();
-          props.onPress();
-        });
-        _$insert(_el$2, () => props.label);
-        _$effect(_p$ => {
-          var _v$ = highlighted() ? theme().background.raised.high : theme().background.raised.base,
-            _v$2 = disabled() ? theme().text.faint : theme().text.base;
-          _v$ !== _p$.e && (_p$.e = _$setProp(_el$, "backgroundColor", _v$, _p$.e));
-          _v$2 !== _p$.t && (_p$.t = _$setProp(_el$2, "fg", _v$2, _p$.t));
-          return _p$;
-        }, {
-          e: undefined,
-          t: undefined
-        });
-        return _el$;
-      })();
-    }
-    function PrCard(props) {
-      // One memoized summary per card: the previous code derived the merge,
-      // review, and checks lines with separate calls.
-      const summary = createMemo(() => summarize(props.p));
-      return [(() => {
-        var _el$3 = _$createElement("box"),
-          _el$4 = _$createElement("text"),
-          _el$5 = _$createElement("b"),
-          _el$6 = _$createTextNode(`#`),
-          _el$7 = _$createTextNode(` `),
-          _el$8 = _$createElement("a"),
-          _el$9 = _$createElement("text"),
-          _el$0 = _$createTextNode(` -&gt; `);
-        _$insertNode(_el$3, _el$4);
-        _$insertNode(_el$3, _el$9);
-        _$insertNode(_el$4, _el$5);
-        _$insertNode(_el$4, _el$7);
-        _$insertNode(_el$4, _el$8);
-        _$setProp(_el$4, "onMouseUp", event => {
-          if (event.button !== 0) {
-            return;
-          }
-          event.stopPropagation();
-          void open();
-        });
-        _$insertNode(_el$5, _el$6);
-        _$insert(_el$5, () => props.p.number, null);
-        _$insert(_el$8, () => clean(props.p.title));
-        _$insertNode(_el$9, _el$0);
-        _$insert(_el$9, () => clean(props.p.headRefName), _el$0);
-        _$insert(_el$9, () => clean(props.p.baseRefName), null);
-        _$effect(_p$ => {
-          var _v$3 = theme().markdown.link,
-            _v$4 = props.p.url,
-            _v$5 = theme().text.muted;
-          _v$3 !== _p$.e && (_p$.e = _$setProp(_el$4, "fg", _v$3, _p$.e));
-          _v$4 !== _p$.t && (_p$.t = _$setProp(_el$8, "href", _v$4, _p$.t));
-          _v$5 !== _p$.a && (_p$.a = _$setProp(_el$9, "fg", _v$5, _p$.a));
-          return _p$;
-        }, {
-          e: undefined,
-          t: undefined,
-          a: undefined
-        });
-        return _el$3;
-      })(), (() => {
-        var _el$1 = _$createElement("box"),
-          _el$10 = _$createElement("text"),
-          _el$11 = _$createElement("text"),
-          _el$12 = _$createTextNode(`Review: `),
-          _el$13 = _$createElement("text"),
-          _el$14 = _$createElement("b"),
-          _el$15 = _$createElement("text");
-        _$insertNode(_el$1, _el$10);
-        _$insertNode(_el$1, _el$11);
-        _$insertNode(_el$1, _el$13);
-        _$insertNode(_el$1, _el$15);
-        _$insert(_el$10, () => summary().lifecycle);
-        _$insertNode(_el$11, _el$12);
-        _$insert(_el$11, () => summary().review, null);
-        _$insertNode(_el$13, _el$14);
-        _$insert(_el$14, () => summary().merge);
-        _$insert(_el$15, () => checksLine(summary().checks));
-        _$effect(_p$ => {
-          var _v$6 = toneColor(theme(), lifecycleTone(props.p.state)),
-            _v$7 = theme().text.muted,
-            _v$8 = toneColor(theme(), MERGE_TONE[summary().merge]),
-            _v$9 = summary().checks.failed > 0 ? theme().text.feedback.warning.base : theme().text.muted;
-          _v$6 !== _p$.e && (_p$.e = _$setProp(_el$10, "fg", _v$6, _p$.e));
-          _v$7 !== _p$.t && (_p$.t = _$setProp(_el$11, "fg", _v$7, _p$.t));
-          _v$8 !== _p$.a && (_p$.a = _$setProp(_el$13, "fg", _v$8, _p$.a));
-          _v$9 !== _p$.o && (_p$.o = _$setProp(_el$15, "fg", _v$9, _p$.o));
-          return _p$;
-        }, {
-          e: undefined,
-          t: undefined,
-          a: undefined,
-          o: undefined
-        });
-        return _el$1;
-      })(), (() => {
-        var _el$16 = _$createElement("box"),
-          _el$17 = _$createElement("text"),
-          _el$18 = _$createTextNode(`+`),
-          _el$19 = _$createTextNode(` / -`),
-          _el$20 = _$createTextNode(` / `),
-          _el$22 = _$createTextNode(` files`),
-          _el$23 = _$createElement("text"),
-          _el$24 = _$createTextNode(` unresolved / `),
-          _el$25 = _$createTextNode(` total comments`),
-          _el$26 = _$createElement("text"),
-          _el$27 = _$createTextNode(`Updated `),
-          _el$28 = _$createElement("text");
-        _$insertNode(_el$16, _el$17);
-        _$insertNode(_el$16, _el$23);
-        _$insertNode(_el$16, _el$26);
-        _$insertNode(_el$16, _el$28);
-        _$insertNode(_el$17, _el$18);
-        _$insertNode(_el$17, _el$19);
-        _$insertNode(_el$17, _el$20);
-        _$insertNode(_el$17, _el$22);
-        _$insert(_el$17, () => props.p.additions.toLocaleString(), _el$19);
-        _$insert(_el$17, () => props.p.deletions.toLocaleString(), _el$20);
-        _$insert(_el$17, () => props.p.changedFiles, _el$22);
-        _$insertNode(_el$23, _el$24);
-        _$insertNode(_el$23, _el$25);
-        _$insert(_el$23, () => props.p.unresolvedThreads, _el$24);
-        _$insert(_el$23, () => props.p.totalComments, _el$25);
-        _$insertNode(_el$26, _el$27);
-        _$insert(_el$26, () => ageOf(props.p.updatedAt, state().now), null);
-        _$insert(_el$28, (() => {
-          var _c$ = _$memo(() => !!state().loading);
-          return () => _c$() ? "Refreshing..." : `Checked ${ageOf(state().fetchedAt, state().now)}`;
-        })());
-        _$effect(_p$ => {
-          var _v$0 = theme().text.base,
-            _v$1 = theme().text.muted,
-            _v$10 = theme().text.muted,
-            _v$11 = theme().text.muted;
-          _v$0 !== _p$.e && (_p$.e = _$setProp(_el$17, "fg", _v$0, _p$.e));
-          _v$1 !== _p$.t && (_p$.t = _$setProp(_el$23, "fg", _v$1, _p$.t));
-          _v$10 !== _p$.a && (_p$.a = _$setProp(_el$26, "fg", _v$10, _p$.a));
-          _v$11 !== _p$.o && (_p$.o = _$setProp(_el$28, "fg", _v$11, _p$.o));
-          return _p$;
-        }, {
-          e: undefined,
-          t: undefined,
-          a: undefined,
-          o: undefined
-        });
-        return _el$16;
-      })()];
-    }
     function Card() {
       onMount(() => {
         monitor = createMonitor({
@@ -274,84 +273,106 @@ export default Plugin.define({
       });
       // A stable root keeps the slot mounted while the first lookup is in flight.
       return (() => {
-        var _el$29 = _$createElement("box"),
-          _el$30 = _$createElement("box"),
-          _el$31 = _$createElement("text"),
-          _el$32 = _$createElement("text"),
-          _el$33 = _$createElement("b");
-        _$insertNode(_el$29, _el$30);
-        _$setProp(_el$29, "gap", 1);
-        _$setProp(_el$29, "flexShrink", 0);
-        _$insertNode(_el$30, _el$31);
-        _$insertNode(_el$30, _el$32);
-        _$setProp(_el$30, "flexDirection", "row");
-        _$setProp(_el$30, "gap", 1);
-        _$setProp(_el$30, "onMouseDown", event => {
+        var _el$31 = _$createElement("box"),
+          _el$32 = _$createElement("box"),
+          _el$33 = _$createElement("text"),
+          _el$34 = _$createElement("text"),
+          _el$35 = _$createElement("b");
+        _$insertNode(_el$31, _el$32);
+        _$setProp(_el$31, "gap", 1);
+        _$setProp(_el$31, "flexShrink", 0);
+        _$insertNode(_el$32, _el$33);
+        _$insertNode(_el$32, _el$34);
+        _$setProp(_el$32, "flexDirection", "row");
+        _$setProp(_el$32, "gap", 1);
+        _$setProp(_el$32, "onMouseDown", event => {
           if (event.button !== 0) {
             return;
           }
           event.stopPropagation();
           setExpanded(value => !value);
         });
-        _$insert(_el$31, () => expanded() ? "▼" : "▶");
-        _$insertNode(_el$32, _el$33);
-        _$insertNode(_el$33, _$createTextNode(`Pull Request`));
-        _$insert(_el$29, (() => {
+        _$insert(_el$33, () => expanded() ? "▼" : "▶");
+        _$insertNode(_el$34, _el$35);
+        _$insertNode(_el$35, _$createTextNode(`Pull Request`));
+        _$insert(_el$31, (() => {
           var _c$2 = _$memo(() => !!expanded());
           return () => _c$2() ? [_$createComponent(Show, {
             get when() {
               return pr();
             },
             children: p => _$createComponent(PrCard, {
-              get p() {
+              get pr() {
                 return p();
-              }
+              },
+              get now() {
+                return state().now;
+              },
+              get loading() {
+                return state().loading;
+              },
+              get fetchedAt() {
+                return state().fetchedAt;
+              },
+              get theme() {
+                return theme();
+              },
+              onOpen: open
             })
           }), _$memo(() => _$memo(() => !!state().error)() ? (() => {
-            var _el$36 = _$createElement("text");
-            _$insert(_el$36, () => pr() ? "STALE: " : "", null);
-            _$insert(_el$36, () => state().error, null);
-            _$effect(_$p => _$setProp(_el$36, "fg", theme().text.feedback.warning.base, _$p));
-            return _el$36;
+            var _el$38 = _$createElement("text");
+            _$insert(_el$38, () => pr() ? "STALE: " : "", null);
+            _$insert(_el$38, () => state().error, null);
+            _$effect(_$p => _$setProp(_el$38, "fg", theme().text.feedback.warning.base, _$p));
+            return _el$38;
           })() : null), (() => {
-            var _el$35 = _$createElement("box");
-            _$setProp(_el$35, "flexDirection", "row");
-            _$setProp(_el$35, "gap", 1);
-            _$setProp(_el$35, "flexWrap", "wrap");
-            _$insert(_el$35, _$createComponent(ActionButton, {
+            var _el$37 = _$createElement("box");
+            _$setProp(_el$37, "flexDirection", "row");
+            _$setProp(_el$37, "gap", 1);
+            _$setProp(_el$37, "flexWrap", "wrap");
+            _$insert(_el$37, _$createComponent(ActionButton, {
               get label() {
                 return state().loading ? "Refreshing" : "Refresh";
+              },
+              get theme() {
+                return theme();
               },
               get disabled() {
                 return state().loading;
               },
               onPress: () => monitor?.tick(true)
             }), null);
-            _$insert(_el$35, _$createComponent(ActionButton, {
+            _$insert(_el$37, _$createComponent(ActionButton, {
               label: "Copy URL",
+              get theme() {
+                return theme();
+              },
               onPress: () => void copy()
             }), null);
-            _$insert(_el$35, _$createComponent(ActionButton, {
+            _$insert(_el$37, _$createComponent(ActionButton, {
               label: "Open",
+              get theme() {
+                return theme();
+              },
               onPress: () => void open()
             }), null);
-            return _el$35;
+            return _el$37;
           })()] : null;
         })(), null);
         _$effect(_p$ => {
           var _v$12 = Boolean(pr() || state().error),
             _v$13 = theme().text.base,
             _v$14 = theme().text.base;
-          _v$12 !== _p$.e && (_p$.e = _$setProp(_el$29, "visible", _v$12, _p$.e));
-          _v$13 !== _p$.t && (_p$.t = _$setProp(_el$31, "fg", _v$13, _p$.t));
-          _v$14 !== _p$.a && (_p$.a = _$setProp(_el$32, "fg", _v$14, _p$.a));
+          _v$12 !== _p$.e && (_p$.e = _$setProp(_el$31, "visible", _v$12, _p$.e));
+          _v$13 !== _p$.t && (_p$.t = _$setProp(_el$33, "fg", _v$13, _p$.t));
+          _v$14 !== _p$.a && (_p$.a = _$setProp(_el$34, "fg", _v$14, _p$.a));
           return _p$;
         }, {
           e: undefined,
           t: undefined,
           a: undefined
         });
-        return _el$29;
+        return _el$31;
       })();
     }
     context.ui.slot({
@@ -397,13 +418,3 @@ export default Plugin.define({
     };
   }
 });
-function checksLine(counts) {
-  if (counts.passed + counts.failed + counts.pending + counts.skipped === 0) {
-    return "No checks reported";
-  }
-  let line = `Checks: ${counts.passed} passed / ${counts.failed} failed / ${counts.pending} pending`;
-  if (counts.skipped > 0) {
-    line += ` / ${counts.skipped} skipped`;
-  }
-  return line;
-}
