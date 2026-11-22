@@ -103,10 +103,18 @@ export default Plugin.define({
 			const highlighted = () => over() && !disabled();
 			return (
 				<box
-					height={1}
 					flexShrink={0}
 					paddingLeft={1}
 					paddingRight={1}
+					border={true}
+					borderStyle="rounded"
+					borderColor={
+						disabled()
+							? theme().text.faint
+							: highlighted()
+								? theme().text.base
+								: theme().border.base
+					}
 					backgroundColor={
 						highlighted()
 							? theme().background.raised.high
