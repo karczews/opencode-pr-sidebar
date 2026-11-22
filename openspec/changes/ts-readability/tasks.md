@@ -66,4 +66,4 @@ Each numbered task is one Conventional Commit; every commit passes `npm run chec
 - [x] V.1 After each task: `npm run check` green and `git status` clean (the rebuilt `dist/` committed).
 - [x] V.2 At the end: `node scripts/check-commits.mjs main HEAD` validates the Conventional Commit messages.
 - [x] V.3 At the end: `git diff main -- test/test-render.test.mjs` shows no changes to asserted strings, so every string the render tests check still renders; this does not cover text the tests do not check.
-- [ ] V.4 Manually check colors, since the render tests only check text: load the plugin in OpenCode (`/run`) and confirm "Ready to merge" is green, blockers are yellow, "Closed without merging" is muted, and a merged lifecycle is green while a closed one is red.
+- [x] V.4 Manually check colors, since the render tests only check text: load the plugin in OpenCode (`/run`) and confirm "Ready to merge" is green, blockers are yellow, "Closed without merging" is muted, and a merged lifecycle is green while a closed one is red.
