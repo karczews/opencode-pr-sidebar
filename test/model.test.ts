@@ -186,17 +186,22 @@ test("fetch helpers use the locked argv shapes", async () => {
 	const signal = new AbortController().signal;
 	await fetchPRView("/repo", signal, execute);
 	await fetchCounts("o", "r", 7, "/repo", signal, execute);
-	assert.deepEqual(calls[0], {
+	assert.equal(calls.length, 2);
+	const prView = calls[0];
+	const counts = calls[1];
+	assert.ok(prView && counts);
+	assert.deepEqual(prView, {
 		file: "gh",
-		args: ["pr", "view", "--json", calls[0].args[3]],
+		args: ["pr", "view", "--json", prView.args[3]],
 	});
-	assert.ok(calls[0].args[3].includes("statusCheckRollup"));
-	assert.deepEqual(calls[1].file, "gh");
-	assert.ok(calls[1].args.includes("graphql"));
-	assert.match(
-		calls[1].args[calls[1].args.length - 1],
-		/^query=query \{ repository\(owner: "o", name: "r"\)/,
-	);
+	const fields = prView.args[3];
+	assert.ok(fields);
+	assert.ok(fields.includes("statusCheckRollup"));
+	assert.equal(counts.file, "gh");
+	assert.ok(counts.args.includes("graphql"));
+	const query = counts.args[counts.args.length - 1];
+	assert.ok(query);
+	assert.match(query, /^query=query \{ repository\(owner: "o", name: "r"\)/);
 });
 
 test("detectRepo resolves this repository and rejects non-repositories", async () => {
@@ -432,7 +437,11 @@ function setupMonitor(): MonitorHarness {
 	};
 }
 
-const state = (harness: MonitorHarness): Snapshot => harness.states[harness.states.length - 1];
+const state = (harness: MonitorHarness): Snapshot => {
+	const last = harness.states[harness.states.length - 1];
+	assert.ok(last);
+	return last;
+};
 
 test("monitor throttles GitHub, bypasses on force and activity", async () => {
 	const harness = setupMonitor();
@@ -543,10 +552,13 @@ test("monitor discards in-flight responses on branch change and stop", async () 
 			cwd = "/repo-b";
 			monitor.tick();
 		}
-		waiting[0].resolve(JSON.stringify(monitorBase));
+		const pendingRequest = waiting[0];
+		assert.ok(pendingRequest);
+		pendingRequest.resolve(JSON.stringify(monitorBase));
 		await new Promise<void>((resolve) => setImmediate(resolve));
 		await new Promise<void>((resolve) => setImmediate(resolve));
 		const last = states[states.length - 1];
+		assert.ok(last);
 		assert.equal(last.pr, null);
 		monitor.stop();
 	}
@@ -568,7 +580,9 @@ test("non-repositories publish no PR and query no GitHub", async () => {
 	monitor.tick();
 	await new Promise<void>((resolve) => setImmediate(resolve));
 	assert.deepEqual(files, ["git"]);
-	assert.equal(states[states.length - 1].pr, null);
+	const last = states[states.length - 1];
+	assert.ok(last);
+	assert.equal(last.pr, null);
 	monitor.stop();
 });
 

@@ -108,7 +108,11 @@ export function splitPRUrl(url) {
     if (!match) {
         throw new Error("Invalid PR URL");
     }
-    return { owner: match[1], repo: match[2], number: Number(match[3]) };
+    const [, owner, repo, num] = match;
+    if (!owner || !repo || !num) {
+        throw new Error("Invalid PR URL");
+    }
+    return { owner, repo, number: Number(num) };
 }
 function asNonNegativeInt(value, label) {
     if (typeof value !== "number" || !Number.isInteger(value) || value < 0) {
