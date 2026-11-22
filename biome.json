@@ -24,6 +24,7 @@
 				"useKeyWithMouseEvents": "off"
 			},
 			"style": {
+				"noNestedTernary": "error",
 				"useNumericSeparators": "error",
 				"useBlockStatements": "error"
 			}

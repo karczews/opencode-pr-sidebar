@@ -737,6 +737,11 @@ export type PlatformDeps = {
 	execute?: Execute;
 };
 
+const LAUNCHERS: Partial<Record<NodeJS.Platform, string>> = {
+	darwin: "open",
+	linux: "xdg-open",
+};
+
 export async function openBrowser(
 	url: string,
 	cwd: string,
@@ -752,7 +757,7 @@ export async function openBrowser(
 	if (platform === "linux" && !env.DISPLAY && !env.WAYLAND_DISPLAY) {
 		return "No graphical display detected. Open the URL below in your browser.";
 	}
-	const launcher = platform === "darwin" ? "open" : platform === "linux" ? "xdg-open" : undefined;
+	const launcher = LAUNCHERS[platform];
 	if (!launcher) {
 		return "Browser opening is unavailable here. Open the URL below in your browser.";
 	}
@@ -766,6 +771,22 @@ export async function openBrowser(
 	return undefined;
 }
 
+function clipboardCommand(
+	platform: NodeJS.Platform,
+	env: NodeJS.ProcessEnv,
+): { file: string; args: string[] } {
+	if (platform === "darwin") {
+		return { file: "pbcopy", args: [] };
+	}
+	if (platform === "win32") {
+		return { file: "clip", args: [] };
+	}
+	if (env.WAYLAND_DISPLAY) {
+		return { file: "wl-copy", args: [] };
+	}
+	return { file: "xclip", args: ["-selection", "clipboard"] };
+}
+
 export async function copyToClipboard(
 	text: string,
 	cwd: string,
@@ -775,14 +796,7 @@ export async function copyToClipboard(
 	if (signal.aborted) {
 		return false;
 	}
-	const command =
-		platform === "darwin"
-			? { file: "pbcopy", args: [] }
-			: platform === "win32"
-				? { file: "clip", args: [] }
-				: env.WAYLAND_DISPLAY
-					? { file: "wl-copy", args: [] }
-					: { file: "xclip", args: ["-selection", "clipboard"] };
+	const command = clipboardCommand(platform, env);
 	try {
 		await execute(command.file, command.args, cwd, signal, text);
 		return !signal.aborted;
