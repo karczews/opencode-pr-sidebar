@@ -4,6 +4,11 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      publish:
+        description: Publish the current package.json version to npm
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -11,13 +16,59 @@ permissions:
   pull-requests: write
 
 jobs:
-  release-please:
+  release:
     name: release-please
     runs-on: ubuntu-latest
+    outputs:
+      release_created: ${{ steps.release.outputs.release_created }}
     steps:
       - name: Run release-please
+        id: release
         uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
         with:
           # A PAT named RELEASE_PLEASE_TOKEN lets release PRs trigger CI.
           # Falls back to GITHUB_TOKEN, whose PRs do not trigger workflows.
           token: ${{ secrets.RELEASE_PLEASE_TOKEN || secrets.GITHUB_TOKEN }}
+
+  publish-npm:
+    name: publish to npm
+    needs: release
+    # Runs when release-please cuts a release, or on demand for the version
+    # already in package.json (e.g. bootstrapping the first npm release).
+    if: needs.release.outputs.release_created == 'true' || (github.event_name == 'workflow_dispatch' && inputs.publish)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write # OIDC for npm trusted publishing (provenance is automatic)
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      # Trusted publishing requires npm >= 11.5.1 / Node >= 22.14.0.
+      - name: Verify npm CLI version
+        run: |
+          version="$(npm --version)"
+          echo "npm $version"
+          if [ "$(printf '%s\n' 11.5.1 "$version" | sort -V | head -n1)" != "11.5.1" ]; then
+            echo "npm >= 11.5.1 required for trusted publishing" >&2
+            exit 1
+          fi
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Verify committed dist
+        run: npm run verify:dist
+
+      # No token: the CLI detects GitHub's OIDC token via id-token: write.
+      # Provenance is generated automatically for public repos/packages.
+      - name: Publish
+        run: npm publish
