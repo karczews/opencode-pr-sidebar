@@ -17,9 +17,9 @@ Constraints: the two-file layout (`model.ts`, `tui.tsx`) is fixed — `compile.m
 - A monitor whose cycle reads as ordered steps with unchanged side-effect order.
 
 **Non-Goals:**
-- No behavior, requirement, or rendered-text changes (`skip_specs: true`).
+- No user-visible behavior, requirement, or rendered-text changes (`skip_specs: true`); `parsePRView` normalizing unknown enum strings (Decision 3) is the only data-level change.
 - No function-length lint rule. Biome counts a nested function's lines toward the containing function, so `createMonitor` and `setup()` — closure factories holding state — cannot pass any useful limit without becoming classes or module-level functions. That is too much risk in the concurrency-sensitive monitor for a cosmetic rule; `noExcessiveCognitiveComplexity` covers the actual problem in `cycle()`, and `setup()` still gets shorter through hoisting in task 8 because it helps, not to satisfy a rule.
-- No cleanup of `scripts/check-imports.mjs` complexity (out of scope); the complexity, length, and parameter rules apply only to `model.ts` and `tui.tsx` through a Biome overrides entry.
+- No cleanup of `scripts/check-imports.mjs` complexity (out of scope); the complexity and parameter rules apply only to `model.ts` and `tui.tsx` through a Biome overrides entry.
 - `exactOptionalPropertyTypes` and `noPropertyAccessFromIndexSignature` are skipped: one adds noise, the other makes code harder to read.
 
 ## Decisions
@@ -30,7 +30,7 @@ Rationale: keeps blame meaningful; the reformat SHA later goes into `.git-blame-
 Alternatives considered: mixing formatting into the refactor commits (hides real changes, rejected).
 
 ### 2. Strict flags in `tsconfig.json` only
-`tsconfig.dist.json` is left alone: the new flags are type-check-only, and `scripts/compile.mjs` already builds `model.ts` through the dist config, so there is no duplicated-flags problem.
+`tsconfig.dist.json` is left alone: the new flags live only in the root `tsconfig.json`, which is `noEmit`, so they only take effect during type checking. `scripts/compile.mjs` emits `dist/` through `tsconfig.dist.json`, which does not set them, so the build output is unaffected and no flags are duplicated.
 `splitPRUrl` destructures and guards the regex groups (same "Invalid PR URL" error), and the test narrows indexed access with `assert.ok`/guards instead of non-null `!`.
 
 ### 3. `gh` enums as literal unions derived from `as const` arrays
