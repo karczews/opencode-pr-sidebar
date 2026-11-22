@@ -289,7 +289,7 @@ async function capture(setup) {
 	}
 }
 
-async function pollFor(setup, predicate, { timeoutMs = 15000, intervalMs = 250 } = {}) {
+async function pollFor(setup, predicate, { timeoutMs = 15_000, intervalMs = 250 } = {}) {
 	const start = Date.now();
 	let frame = await capture(setup);
 	while (!predicate(frame)) {
@@ -484,7 +484,7 @@ test("sidebar card keeps stale data and offers refresh after failures", async ()
 		assert.ok(at, "Refresh button must be visible");
 		await setup.mockMouse.click(at.x, at.y, 0);
 		const frame = await pollFor(setup, (text) => text.includes("STALE"), {
-			timeoutMs: 15000,
+			timeoutMs: 15_000,
 		});
 		assert.ok(frame.includes("STALE"), "must mark retained data as stale");
 		assert.ok(frame.includes("#42"), "must retain the last successful PR");
@@ -523,7 +523,7 @@ test("open and copy report failures with the URL when launchers are unavailable"
 				const at = findButton(setup.captureSpans(), label);
 				assert.ok(at, `${label} button must be visible`);
 				await setup.mockMouse.click(at.x, at.y, 0);
-				const deadline = Date.now() + 15000;
+				const deadline = Date.now() + 15_000;
 				while (toasts.length === 0 && Date.now() < deadline) {
 					await setup.flush();
 					await sleep(100);

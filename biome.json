@@ -22,6 +22,10 @@
 			"a11y": {
 				"noStaticElementInteractions": "off",
 				"useKeyWithMouseEvents": "off"
+			},
+			"style": {
+				"useNumericSeparators": "error",
+				"useBlockStatements": "error"
 			}
 		}
 	},

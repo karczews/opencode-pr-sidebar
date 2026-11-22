@@ -210,7 +210,7 @@ export function runtimeSpecifiers(source) {
 			c === "\ufeff" ||
 			c === "\u00a0" ||
 			c === "\u1680" ||
-			(cp >= 0x2000 && cp <= 0x200a) ||
+			(cp >= 0x20_00 && cp <= 0x20_0a) ||
 			c === "\u202f" ||
 			c === "\u205f" ||
 			c === "\u3000"
@@ -233,7 +233,7 @@ export function runtimeSpecifiers(source) {
 			c === "\u00a0" ||
 			c === "\ufeff" ||
 			c === "\u1680" ||
-			(cp >= 0x2000 && cp <= 0x200a) ||
+			(cp >= 0x20_00 && cp <= 0x20_0a) ||
 			c === "\u202f" ||
 			c === "\u205f" ||
 			c === "\u3000"
@@ -249,10 +249,14 @@ export function runtimeSpecifiers(source) {
 			if (isSpaceChar(c) || LINE_TERMINATORS.has(c)) {
 				i++;
 			} else if (c === "/" && source[i + 1] === "/") {
-				while (i < n && !LINE_TERMINATORS.has(source[i])) i++;
+				while (i < n && !LINE_TERMINATORS.has(source[i])) {
+					i++;
+				}
 			} else if (c === "/" && source[i + 1] === "*") {
 				i += 2;
-				while (i < n && !(source[i] === "*" && source[i + 1] === "/")) i++;
+				while (i < n && !(source[i] === "*" && source[i + 1] === "/")) {
+					i++;
+				}
 				i += 2;
 			} else {
 				break;
@@ -263,7 +267,9 @@ export function runtimeSpecifiers(source) {
 	function readWord() {
 		skipTrivia();
 		const start = i;
-		while (i < n && isWordChar(source[i])) i++;
+		while (i < n && isWordChar(source[i])) {
+			i++;
+		}
 		return source.slice(start, i);
 	}
 
@@ -343,9 +349,13 @@ export function runtimeSpecifiers(source) {
 				i += 2;
 				continue;
 			}
-			if (LINE_TERMINATORS.has(c)) break;
+			if (LINE_TERMINATORS.has(c)) {
+				break;
+			}
 			if (inClass) {
-				if (c === "]") inClass = false;
+				if (c === "]") {
+					inClass = false;
+				}
 				i++;
 				continue;
 			}
@@ -365,7 +375,9 @@ export function runtimeSpecifiers(source) {
 	function skipNumberAtom() {
 		if (source[i] === "0" && /[xX]/.test(source[i + 1] ?? "")) {
 			i += 2;
-			while (i < n && /[0-9a-fA-F_]/.test(source[i])) i++;
+			while (i < n && /[0-9a-fA-F_]/.test(source[i])) {
+				i++;
+			}
 			return;
 		}
 		while (i < n) {
@@ -383,7 +395,9 @@ export function runtimeSpecifiers(source) {
 	}
 
 	function regexAllowed() {
-		if (prev === null || prev === "ctrl") return true;
+		if (prev === null || prev === "ctrl") {
+			return true;
+		}
 		if (
 			prev === "num" ||
 			prev === "str" ||
@@ -509,8 +523,11 @@ export function runtimeSpecifiers(source) {
 					// (CRLF is one), spaces, and block comments; anything
 					// else ends the statement.
 					const at = i;
-					if (c === "\r" && source[i + 1] === "\n") i += 2;
-					else i++;
+					if (c === "\r" && source[i + 1] === "\n") {
+						i += 2;
+					} else {
+						i++;
+					}
 					let next;
 					for (;;) {
 						while (i < n && isSpaceChar(source[i])) {
@@ -519,7 +536,9 @@ export function runtimeSpecifiers(source) {
 						next = source[i];
 						if (next === "/" && source[i + 1] === "*") {
 							i += 2;
-							while (i < n && !(source[i] === "*" && source[i + 1] === "/")) i++;
+							while (i < n && !(source[i] === "*" && source[i + 1] === "/")) {
+								i++;
+							}
 							i += 2;
 							continue;
 						}
@@ -541,16 +560,22 @@ export function runtimeSpecifiers(source) {
 				continue;
 			}
 			if (c === "/" && source[i + 1] === "/") {
-				while (i < n && !LINE_TERMINATORS.has(source[i])) i++;
+				while (i < n && !LINE_TERMINATORS.has(source[i])) {
+					i++;
+				}
 				continue;
 			}
 			if (c === "/" && source[i + 1] === "*") {
 				i += 2;
-				while (i < n && !(source[i] === "*" && source[i + 1] === "/")) i++;
+				while (i < n && !(source[i] === "*" && source[i + 1] === "/")) {
+					i++;
+				}
 				i += 2;
 				continue;
 			}
-			if (c === ";") break;
+			if (c === ";") {
+				break;
+			}
 			if (c === "'" || c === '"') {
 				if (depth > 0) {
 					// Quoted binding name inside the clause: `import { "a-b" as a }`.
@@ -590,7 +615,9 @@ export function runtimeSpecifiers(source) {
 				first = false;
 				continue;
 			}
-			if (depth === 0 && (c === "=" || c === "(")) break;
+			if (depth === 0 && (c === "=" || c === "(")) {
+				break;
+			}
 			if (c === "(" || c === "[" || c === "{") {
 				depth++;
 				i++;
@@ -599,7 +626,9 @@ export function runtimeSpecifiers(source) {
 			}
 			if (c === ")" || c === "]" || c === "}") {
 				depth--;
-				if (depth < 0) break;
+				if (depth < 0) {
+					break;
+				}
 				i++;
 				first = false;
 				continue;
@@ -637,12 +666,16 @@ export function runtimeSpecifiers(source) {
 			continue;
 		}
 		if (c === "/" && source[i + 1] === "/") {
-			while (i < n && !LINE_TERMINATORS.has(source[i])) i++;
+			while (i < n && !LINE_TERMINATORS.has(source[i])) {
+				i++;
+			}
 			continue;
 		}
 		if (c === "/" && source[i + 1] === "*") {
 			i += 2;
-			while (i < n && !(source[i] === "*" && source[i + 1] === "/")) i++;
+			while (i < n && !(source[i] === "*" && source[i + 1] === "/")) {
+				i++;
+			}
 			i += 2;
 			continue;
 		}

@@ -24,7 +24,7 @@ const REPO_ENV_KEYS = [
     "GIT_COMMON_DIR",
     "GIT_INDEX_FILE",
 ];
-export function run(file, args, cwd, signal, input, timeoutMs = 15000) {
+export function run(file, args, cwd, signal, input, timeoutMs = 15_000) {
     return new Promise((resolve, reject) => {
         const env = {
             ...process.env,
@@ -351,10 +351,10 @@ export function ageOf(time, now = Date.now()) {
     if (seconds < 3600) {
         return `${Math.floor(seconds / 60)}m ago`;
     }
-    if (seconds < 86400) {
+    if (seconds < 86_400) {
         return `${Math.floor(seconds / 3600)}h ago`;
     }
-    return `${Math.floor(seconds / 86400)}d ago`;
+    return `${Math.floor(seconds / 86_400)}d ago`;
 }
 export function summarize(pr) {
     return {
@@ -364,8 +364,8 @@ export function summarize(pr) {
         merge: mergeLineOf(pr),
     };
 }
-const GITHUB_THROTTLE_MS = 60000;
-const GITHUB_ACTIVITY_THROTTLE_MS = 10000;
+const GITHUB_THROTTLE_MS = 60_000;
+const GITHUB_ACTIVITY_THROTTLE_MS = 10_000;
 export function displayError(kind) {
     if (kind === "cli-missing") {
         return "GitHub CLI unavailable";

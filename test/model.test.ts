@@ -383,7 +383,7 @@ type MonitorHarness = {
 };
 
 function setupMonitor(): MonitorHarness {
-	let clock = 100000;
+	let clock = 100_000;
 	let branch = "feature";
 	let failure: unknown;
 	let ghCalls = 0;
@@ -453,7 +453,7 @@ test("monitor throttles GitHub, bypasses on force and activity", async () => {
 	harness.monitor.tick();
 	await harness.flush();
 	assert.equal(harness.ghCalls, 2);
-	harness.setClock(100000 + 10000);
+	harness.setClock(100_000 + 10_000);
 	harness.monitor.tick(false, true);
 	await harness.flush();
 	await harness.flush();
@@ -715,7 +715,7 @@ test("copyToClipboard uses the platform clipboard and reports failure", async ()
 });
 
 test("disposing the monitor stops all polling work", async () => {
-	let clock = 100000;
+	let clock = 100_000;
 	let ghCalls = 0;
 	const states: Snapshot[] = [];
 	const monitor = createMonitor({

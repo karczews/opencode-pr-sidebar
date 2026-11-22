@@ -65,7 +65,7 @@ export function run(
 	cwd: string,
 	signal: AbortSignal,
 	input?: string,
-	timeoutMs = 15000,
+	timeoutMs = 15_000,
 ): Promise<string> {
 	return new Promise((resolve, reject) => {
 		const env: NodeJS.ProcessEnv = {
@@ -465,10 +465,10 @@ export function ageOf(time: string | number | undefined, now: number = Date.now(
 	if (seconds < 3600) {
 		return `${Math.floor(seconds / 60)}m ago`;
 	}
-	if (seconds < 86400) {
+	if (seconds < 86_400) {
 		return `${Math.floor(seconds / 3600)}h ago`;
 	}
-	return `${Math.floor(seconds / 86400)}d ago`;
+	return `${Math.floor(seconds / 86_400)}d ago`;
 }
 
 export type Summary = {
@@ -497,8 +497,8 @@ export type Snapshot = {
 	branch?: string;
 };
 
-const GITHUB_THROTTLE_MS = 60000;
-const GITHUB_ACTIVITY_THROTTLE_MS = 10000;
+const GITHUB_THROTTLE_MS = 60_000;
+const GITHUB_ACTIVITY_THROTTLE_MS = 10_000;
 
 export function displayError(kind: FetchErrorKind): string {
 	if (kind === "cli-missing") {
