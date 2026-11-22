@@ -37,7 +37,7 @@ Update later with `opencode plugin update opencode2-pr-sidebar`.
 ```sh
 opencode plugin add github:karczews/opencode-pr-sidebar
 # pin a release tag if you prefer:
-opencode plugin add 'github:karczews/opencode-pr-sidebar#v0.1.5'
+opencode plugin add 'github:karczews/opencode-pr-sidebar#v0.2.0'
 ```
 <!-- x-release-please-end -->
 
