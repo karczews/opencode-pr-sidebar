@@ -10,6 +10,7 @@ import {
 	copyToClipboard,
 	createMonitor,
 	MERGE_TONE,
+	type Monitor,
 	openBrowser,
 	type PullRequest,
 	type Snapshot,
@@ -56,7 +57,7 @@ export default Plugin.define({
 			loading: false,
 		});
 		const [expanded, setExpanded] = createSignal(true);
-		let monitor: ReturnType<typeof createMonitor> | undefined;
+		let monitor: Monitor | undefined;
 		const lifecycle = new AbortController();
 
 		const directory = () => {

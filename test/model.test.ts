@@ -15,6 +15,7 @@ import {
 	MERGE_TONE,
 	type MergeLine,
 	mergeLineOf,
+	type Monitor,
 	openBrowser,
 	parseCounts,
 	parsePRView,
@@ -404,7 +405,7 @@ function monitorCounts() {
 }
 
 type MonitorHarness = {
-	monitor: ReturnType<typeof createMonitor>;
+	monitor: Monitor;
 	states: Snapshot[];
 	ghCalls: number;
 	setBranch: (branch: string) => void;

@@ -120,11 +120,16 @@ export function run(
 
 export type Execute = typeof run;
 
+export type Repo = {
+	root: string;
+	branch: string;
+};
+
 export async function detectRepo(
 	directory: string,
 	signal: AbortSignal,
 	execute: Execute = run,
-): Promise<{ root: string; branch: string } | null> {
+): Promise<Repo | null> {
 	try {
 		const out = await execute("git", ["rev-parse", "--show-toplevel", "--abbrev-ref", "HEAD"], {
 			cwd: directory,
@@ -559,6 +564,11 @@ export const displayError: Record<FetchErrorKind, string> = {
 	"refresh-failed": "PR refresh failed",
 };
 
+export type Monitor = {
+	tick(force?: boolean, activity?: boolean): void;
+	stop(): void;
+};
+
 export function createMonitor({
 	directory,
 	publish,
@@ -569,7 +579,7 @@ export function createMonitor({
 	publish: (value: Snapshot) => void;
 	execute?: Execute;
 	now?: () => number;
-}) {
+}): Monitor {
 	let current: Snapshot = {
 		pr: null,
 		error: "",
@@ -605,42 +615,44 @@ export function createMonitor({
 	const isStale = (expected: number, cwd: string, signal: AbortSignal): boolean =>
 		stopped || expected !== version || directory() !== cwd || signal.aborted;
 
-	async function cycle(force: boolean, activity: boolean): Promise<void> {
-		if (stopped) {
-			return;
+	// The context (empty cwd, non-repo) yields nothing: drop whatever an older context left.
+	const resetIfKey = (): void => {
+		if (key) {
+			reset("");
 		}
+	};
+
+	// Empty or changed directory: clear anything an older context published.
+	const currentDirectory = (): string => {
 		const cwd = directory();
 		if (!cwd) {
-			if (key) {
-				reset("");
-			}
-			return;
+			resetIfKey();
+			return "";
 		}
 		if (current.directory !== cwd) {
 			reset("");
 			emit({ directory: cwd });
 		}
+		return cwd;
+	};
+
+	// The detection AbortController is tracked so a reset or stop can cancel it.
+	const detect = async (cwd: string): Promise<Repo | null> => {
 		const detectController = new AbortController();
 		detection = detectController;
-		let repo: { root: string; branch: string } | null;
 		try {
-			repo = await detectRepo(cwd, detectController.signal, execute);
+			return await detectRepo(cwd, detectController.signal, execute);
 		} catch {
-			repo = null;
+			return null;
 		} finally {
 			if (detection === detectController) {
 				detection = undefined;
 			}
 		}
-		if (stopped || directory() !== cwd) {
-			return;
-		}
-		if (!repo) {
-			if (key) {
-				reset("");
-			}
-			return;
-		}
+	};
+
+	// Re-key the snapshot when the repo or branch changed, then publish the branch.
+	const syncRepo = (cwd: string, repo: Repo): void => {
 		const next = JSON.stringify([cwd, repo.root, repo.branch]);
 		if (next !== key) {
 			reset(next);
@@ -648,12 +660,13 @@ export function createMonitor({
 		if (current.branch !== repo.branch) {
 			emit({ branch: repo.branch });
 		}
-		if (repo.branch === "HEAD") {
-			return;
-		}
+	};
+
+	// One GitHub request at a time; forced ticks cancel the in-flight one, others wait.
+	const shouldFetch = (force: boolean, activity: boolean): boolean => {
 		if (request) {
 			if (!force) {
-				return;
+				return false;
 			}
 			request.abort();
 			request = undefined;
@@ -662,8 +675,29 @@ export function createMonitor({
 			lastFetchAt > 0 &&
 			now() - lastFetchAt < (activity ? GITHUB_ACTIVITY_THROTTLE_MS : GITHUB_THROTTLE_MS)
 		) {
+			return false;
+		}
+		return true;
+	};
+
+	const publishError = (
+		expected: number,
+		cwd: string,
+		signal: AbortSignal,
+		error: unknown,
+	): void => {
+		if (isStale(expected, cwd, signal)) {
 			return;
 		}
+		const kind = errorKind(error);
+		if (kind === "absent") {
+			emit({ pr: null, error: "", fetchedAt: now() });
+		} else {
+			emit({ error: displayError[kind] });
+		}
+	};
+
+	const fetchAndPublish = async (cwd: string, repo: Repo): Promise<void> => {
 		const expected = version;
 		const abort = new AbortController();
 		request = abort;
@@ -686,15 +720,7 @@ export function createMonitor({
 			const counts = parseCounts(countsText);
 			emit({ pr: { ...parsed, ...counts }, error: "", fetchedAt: now() });
 		} catch (error) {
-			if (isStale(expected, cwd, abort.signal)) {
-				return;
-			}
-			const kind = errorKind(error);
-			if (kind === "absent") {
-				emit({ pr: null, error: "", fetchedAt: now() });
-			} else {
-				emit({ error: displayError[kind] });
-			}
+			publishError(expected, cwd, abort.signal, error);
 		} finally {
 			if (request === abort) {
 				request = undefined;
@@ -703,6 +729,32 @@ export function createMonitor({
 				emit({ loading: false });
 			}
 		}
+	};
+
+	async function cycle(force: boolean, activity: boolean): Promise<void> {
+		if (stopped) {
+			return;
+		}
+		const cwd = currentDirectory();
+		if (!cwd) {
+			return;
+		}
+		const repo = await detect(cwd);
+		if (stopped || directory() !== cwd) {
+			return;
+		}
+		if (!repo) {
+			resetIfKey();
+			return;
+		}
+		syncRepo(cwd, repo);
+		if (repo.branch === "HEAD") {
+			return;
+		}
+		if (!shouldFetch(force, activity)) {
+			return;
+		}
+		await fetchAndPublish(cwd, repo);
 	}
 
 	return {
