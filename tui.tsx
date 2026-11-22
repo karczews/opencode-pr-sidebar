@@ -92,18 +92,29 @@ function PrCard(props: {
 	return (
 		<>
 			<box>
-				<text
-					fg={props.theme.markdown.link}
-					onMouseUp={(event) => {
-						if (event.button !== 0) {
-							return;
-						}
-						event.stopPropagation();
-						void props.onOpen();
-					}}
-				>
-					<b>#{props.pr.number}</b> <a href={props.pr.url}>{clean(props.pr.title)}</a>
-				</text>
+				{/* Spans get no mouse events, so the number link needs its own text node. */}
+				<box flexDirection="row" gap={1}>
+					<text
+						flexShrink={0}
+						fg={props.theme.markdown.link}
+						onMouseUp={(event) => {
+							if (event.button !== 0) {
+								return;
+							}
+							event.stopPropagation();
+							void props.onOpen();
+						}}
+					>
+						<a href={props.pr.url}>
+							<u>
+								<b>#{props.pr.number}</b>
+							</u>
+						</a>
+					</text>
+					<text flexShrink={1} fg={props.theme.text.base}>
+						{clean(props.pr.title)}
+					</text>
+				</box>
 				<text fg={props.theme.text.muted}>
 					{clean(props.pr.headRefName)} {"->"} {clean(props.pr.baseRefName)}
 				</text>
