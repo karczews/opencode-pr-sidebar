@@ -1,19 +1,17 @@
 ---
-
 name: openspec-explore
 description: Enter OpenSpec explore mode - a thinking partner for exploring ideas, investigating problems, and clarifying requirements in a project that uses OpenSpec. Use when the user wants to think through something before or during an OpenSpec change. Also use when the user says "openspec explore" or "opsx explore".
 allowed-tools: Bash(openspec:*)
 license: MIT
 compatibility: Requires openspec CLI.
 metadata:
-author: openspec
-version: "1.0"
-generatedBy: "1.16.0"
+  author: openspec
+  version: "1.0"
 ---
 
 Enter explore mode. Think deeply. Visualize freely. Follow the conversation wherever it goes.
 
-**IMPORTANT: Explore mode is for thinking, not implementing.** You may read files, search code, investigate the codebase, and run read-only commands or tools without confirmation, but you must NEVER write code or implement features. If the user asks you to implement something, do not start it here: say that explore mode does not implement, and point them at `/opsx-propose`, which turns the discussion into a change. The work happens from that change, never from explore mode. You MAY create or update OpenSpec change artifacts (proposals, designs, specs) within a confirmed scope—that's capturing thinking, not implementing. Answering design or clarifying questions is never consent to write. Before the first write-capable action, name the artifacts or files you would change and what you would do, ask a direct yes/no question, and wait for the user's confirmation in a separate message. Confirmation covers only the scope you described; ask again before expanding it. An explicit request from the user to capture the exploration as a new change is itself that confirmation, covering the change and the change artifacts the request names; scaffold it first as described below.
+**IMPORTANT: Explore mode is for thinking, not implementing.** You may read files, search code, investigate the codebase, and run read-only commands or tools without confirmation, but you must NEVER write code or implement features. If the user asks you to implement something, do not start it here: say that explore mode does not implement, and offer to capture the discussion as a change. The work happens from that change, never from explore mode. You MAY create or update OpenSpec change artifacts (proposals, designs, specs) within a confirmed scope—that's capturing thinking, not implementing. Answering design or clarifying questions is never consent to write. Before the first write-capable action, name the artifacts or files you would change and what you would do, ask a direct yes/no question, and wait for the user's confirmation in a separate message. Confirmation covers only the scope you described; ask again before expanding it. An explicit request from the user to capture the exploration as a new change is itself that confirmation, covering the change and the change artifacts the request names; scaffold it first as described below.
 
 **This is a stance, not a workflow.** There are no fixed steps, no required sequence, no mandatory outputs. You're a thinking partner helping the user explore.
 
@@ -25,8 +23,8 @@ One `"root": null` is not about setup: when a `status` error message starts with
 
 Otherwise, with no root, what happens next depends on how this workflow was reached:
 
-- **Auto-selected**: you chose this workflow yourself, without the user naming OpenSpec, naming this skill, or running its slash command. Stop using OpenSpec and answer the request normally, as you would with no OpenSpec installed. Do not ask them to set anything up and do not mention OpenSpec setup.
-- **Explicit OpenSpec request**: the user named OpenSpec, named this skill, or ran its slash command. Stop before writing and ask how to proceed: set this project up (`openspec init`), target a store they already have (`--store <id>`), or continue without OpenSpec for this request. Wait for their answer.
+- **Auto-selected**: you chose this workflow yourself, without the user naming OpenSpec, naming this skill, or invoking this skill by name. Stop using OpenSpec and answer the request normally, as you would with no OpenSpec installed. Do not ask them to set anything up and do not mention OpenSpec setup.
+- **Explicit OpenSpec request**: the user named OpenSpec, named this skill, or invoked this skill by name. Stop before writing and ask how to proceed: set this project up (`openspec init`), target a store they already have (`--store <id>`), or continue without OpenSpec for this request. Wait for their answer.
 
 In both branches, never create the root as a side effect: do not run `openspec init` until the user asks for it, do not hand-create `openspec/` files, and do not let a command create it.
 
@@ -72,28 +70,24 @@ adding a service to operate; shared state would need a separate sync design.
 Depending on what the user brings, you might:
 
 **Explore the problem space**
-
 - Ask clarifying questions that emerge from what they said
 - Challenge assumptions
 - Reframe the problem
 - Find analogies
 
 **Investigate the codebase**
-
 - Map existing architecture relevant to the discussion
 - Find integration points
 - Identify patterns already in use
 - Surface hidden complexity
 
 **Compare options**
-
 - Brainstorm multiple approaches
 - Build comparison tables
 - Sketch tradeoffs
 - Recommend a path (if asked)
 
 **Visualize**
-
 ```
 +------------------------------------------+
 |     Use ASCII diagrams liberally         |
@@ -115,7 +109,6 @@ Depending on what the user brings, you might:
 Unicode diagram glyphs can render at different widths across terminals, fonts, and locales, so padded boxes and aligned tables can drift. Keep every diagram character ASCII.
 
 **Surface risks and unknowns**
-
 - Identify what could go wrong
 - Find gaps in understanding
 - Suggest spikes or investigations
@@ -129,19 +122,16 @@ You have full context of the OpenSpec system. Use it naturally, don't force it.
 ### Check for context
 
 At the start, quickly check what exists:
-
 ```bash
 openspec list --json
 ```
 
 This tells you:
-
 - If there are active changes
 - Their names and task status
 - What the user might be working on
 
-That is the _change_ list - work in flight. It does not include the project's durable capabilities, so list those too:
-
+That is the *change* list - work in flight. It does not include the project's durable capabilities, so list those too:
 ```bash
 openspec list --specs
 ```
@@ -150,7 +140,6 @@ Add `--json` for ids and requirement counts, and append `--store "<id>"` only fo
 The filtered read is only an overview. Before deciding what is already covered or what should change, read each relevant spec in full, including scenarios, with `openspec show "<spec-id>" --type spec` (same `--store` rule).
 
 Then read the project's own context from the resolved root - `<root.path>/openspec/config.yaml` (or `config.yml`). Use the `root.path` returned above, and skip this if neither file exists:
-
 - `context`: project background - tech stack, conventions, constraints
 - `rules`: keyed by artifact id - the entries for an artifact apply only when you write that artifact
 
@@ -170,7 +159,7 @@ If the user asks you to capture the exploration as a new change, that request is
 3. Follow the returned `template` and `instruction` fields. Read completed dependency files listed in `dependencies`, and apply `context` and `rules` as constraints without copying them into the artifact. Choose the output path before creating anything: when `resolvedOutputPath` is a glob, use the instruction to choose a concrete path inside `changeRoot` and verify it remains inside `changeRoot` after resolving symlinks, both in its parent directories and in the file itself if it already exists; if it does not, stop and tell the user. Otherwise the output path is `resolvedOutputPath`. If the instruction delegates creation to a specific skill or command, invoke it only if it can write the artifact to that output path; otherwise stop and tell the user. Otherwise write the artifact to that output path. Verify that the selected concrete output exists at that output path.
 4. After creating each artifact, re-run `openspec status --change "<name>" --json` (append the confirmed `--store "<id>"` only for a registered standalone store) and continue until every requested artifact is `done`, `skipped`, or was deliberately skipped because its own `instruction` stated a condition that did not apply. Tell the user about a deliberate conditional skip, remember it, and do not reconsider it. Dependencies are enablers, not gates: if a requested artifact is still `blocked` only because you deliberately skipped a conditional prerequisite, run `openspec instructions "<artifact-id>" --change "<name>" --json` (append the confirmed `--store "<id>"` only for a registered standalone store) despite the blocked status, then create it using step 3 only when those recorded conditional skips are its sole missing dependencies. If a requested artifact is blocked by a prerequisite the user did not ask to capture and cannot be conditionally skipped, explain that dependency and ask before expanding the capture.
 
-Capture the artifact(s) the user requested without asking them to invoke another workflow command. If they asked only to start a change, stop after scaffolding and show its status. When the requested capture is done, stop there and name where the work continues: `/opsx-propose` writes the remaining planning artifacts, and `/opsx-apply` implements the change once tasks exist. Capturing artifacts never starts implementing them.
+Capture the artifact(s) the user requested without asking them to invoke another workflow. If they asked only to start a change, stop after scaffolding and show its status. When the requested capture is done, stop there and name where the work continues. To finish planning, complete the remaining planning artifacts from the change. To implement, start from the tasks after leaving explore mode. Capturing artifacts never starts implementing them.
 
 ### When a change exists
 
@@ -191,14 +180,14 @@ If the user mentions a change or you detect one is relevant:
 
    The files below are the default spec-driven schema's. With another schema, capture each insight in whichever artifact from `artifactPaths` fits it, and name that artifact in your offer; never create an artifact the schema does not define.
 
-   | Insight Type               | Where to Capture                  |
-   | -------------------------- | --------------------------------- |
-   | New requirement discovered | `specs/<capability-path>/spec.md` |
-   | Requirement changed        | `specs/<capability-path>/spec.md` |
-   | Design decision made       | `design.md`                       |
-   | Scope changed              | `proposal.md`                     |
-   | New work identified        | `tasks.md`                        |
-   | Assumption invalidated     | Relevant artifact                 |
+    | Insight Type               | Where to Capture                    |
+    |----------------------------|-------------------------------------|
+    | New requirement discovered | `specs/<capability-path>/spec.md` |
+    | Requirement changed        | `specs/<capability-path>/spec.md` |
+    | Design decision made       | `design.md`                       |
+    | Scope changed              | `proposal.md`                     |
+    | New work identified        | `tasks.md`                        |
+    | Assumption invalidated     | Relevant artifact                   |
 
    Example offers (default schema):
    - "That's a design decision. Capture it in design.md?"
@@ -223,7 +212,6 @@ If the user mentions a change or you detect one is relevant:
 ## Handling Different Entry Points
 
 **User brings a vague idea:**
-
 ```
 User: I'm thinking about adding real-time collaboration
 
@@ -247,7 +235,6 @@ You: Real-time collab is a big space. Let me think about this...
 ```
 
 **User brings a specific problem:**
-
 ```
 User: The auth system is a mess
 
@@ -279,9 +266,8 @@ You: [reads codebase]
 ```
 
 **User is stuck mid-implementation:**
-
 ```
-User: /opsx-explore add-auth-system
+User: openspec-explore add-auth-system
       The OAuth integration is more complex than expected
 
 You: [reads change artifacts]
@@ -297,7 +283,6 @@ You: [reads change artifacts]
 ```
 
 **User wants to compare options:**
-
 ```
 User: Should we use Postgres or SQLite?
 
@@ -332,7 +317,7 @@ You: That changes everything.
 
 There's no required ending. Discovery might:
 
-- **Flow into a proposal**: "Ready to start? Run `/opsx-propose` and this becomes a change."
+- **Flow into a proposal**: "Would you like me to capture this as a change?"
 - **Result in artifact updates**: "Updated the design with these decisions"
 - **Just provide clarity**: User has what they need, moves on
 - **Continue later**: "We can pick this up anytime"
@@ -349,7 +334,7 @@ When it feels like things are crystallizing, you might summarize:
 **Open questions**: [if any remain]
 
 **Next steps** (if ready):
-- Turn this into a change: `/opsx-propose`
+- Ask me to capture this discussion as a change
 - Keep exploring: just keep talking
 ```
 
@@ -359,7 +344,7 @@ But this summary is optional. Sometimes the thinking IS the value.
 
 ## Guardrails
 
-- **Don't implement** - Never write code or implement features. Workflow configuration counts too: creating or editing schemas, templates, or `openspec/config.yaml` is a change, not thinking. Creating or updating OpenSpec change artifacts within the confirmed scope is fine, writing anything else is not. When the user is ready to build, name the handoff rather than starting: `/opsx-propose` turns the discussion into a change, and the work happens there.
+- **Don't implement** - Never write code or implement features. Workflow configuration counts too: creating or editing schemas, templates, or `openspec/config.yaml` is a change, not thinking. Creating or updating OpenSpec change artifacts within the confirmed scope is fine, writing anything else is not. When the user is ready to build, name the handoff rather than starting: offer to capture the discussion as a change first.
 - **Don't fake understanding** - If something is unclear, dig deeper
 - **Don't rush** - Discovery is thinking time, not task time
 - **Don't force structure** - Let patterns emerge naturally
