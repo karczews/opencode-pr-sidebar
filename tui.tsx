@@ -1,19 +1,49 @@
 /** @jsxImportSource @opentui/solid */
 import { Plugin } from "@opencode/plugin/tui";
+import type { ResolvedTheme } from "@opencode/theme/tui";
+import type { RGBA } from "@opentui/core";
 import { createMemo, createSignal, onCleanup, onMount, Show } from "solid-js";
 import {
 	ageOf,
+	type CheckCounts,
 	clean,
 	copyToClipboard,
 	createMonitor,
+	MERGE_TONE,
 	openBrowser,
-	summarize,
-	type CheckCounts,
 	type PullRequest,
 	type Snapshot,
+	summarize,
+	type Tone,
 } from "./model.ts";
 
 const POLL_MS = 5000;
+
+function toneColor(theme: ResolvedTheme, tone: Tone): RGBA {
+	if (tone === "success") {
+		return theme.text.feedback.success.base;
+	}
+	if (tone === "error") {
+		return theme.text.feedback.error.base;
+	}
+	if (tone === "warning") {
+		return theme.text.feedback.warning.base;
+	}
+	if (tone === "muted") {
+		return theme.text.muted;
+	}
+	return theme.text.base;
+}
+
+function lifecycleTone(state: PullRequest["state"]): Tone {
+	if (state === "MERGED") {
+		return "success";
+	}
+	if (state === "CLOSED") {
+		return "error";
+	}
+	return "base";
+}
 
 export default Plugin.define({
 	id: "pr-sidebar",
@@ -65,16 +95,6 @@ export default Plugin.define({
 			if (!lifecycle.signal.aborted) {
 				toast(ok ? "PR URL copied" : "Could not copy PR URL", ok ? "success" : "error");
 			}
-		}
-
-		function mergeFg(line: string) {
-			if (line === "Ready to merge" || line === "Merged") {
-				return theme().text.feedback.success.base;
-			}
-			if (line === "Closed without merging" || line === "Merge status unknown") {
-				return theme().text.muted;
-			}
-			return theme().text.feedback.warning.base;
 		}
 
 		function ActionButton(props: { label: string; disabled?: boolean; onPress: () => void }) {
@@ -129,19 +149,9 @@ export default Plugin.define({
 						</text>
 					</box>
 					<box>
-						<text
-							fg={
-								props.p.state === "MERGED"
-									? theme().text.feedback.success.base
-									: props.p.state === "CLOSED"
-										? theme().text.feedback.error.base
-										: theme().text.base
-							}
-						>
-							{summary().lifecycle}
-						</text>
+						<text fg={toneColor(theme(), lifecycleTone(props.p.state))}>{summary().lifecycle}</text>
 						<text fg={theme().text.muted}>Review: {summary().review}</text>
-						<text fg={mergeFg(summary().merge)}>
+						<text fg={toneColor(theme(), MERGE_TONE[summary().merge])}>
 							<b>{summary().merge}</b>
 						</text>
 						<text

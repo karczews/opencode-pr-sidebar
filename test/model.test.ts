@@ -7,21 +7,24 @@ import {
 	countsQuery,
 	createMonitor,
 	detectRepo,
+	type Execute,
 	errorKind,
 	fetchCounts,
 	fetchPRView,
 	lifecycleOf,
+	MERGE_TONE,
+	type MergeLine,
 	mergeLineOf,
 	openBrowser,
 	parseCounts,
 	parsePRView,
 	run,
+	type Snapshot,
 	splitPRUrl,
 	summarize,
 	summarizeChecks,
 	summarizeReview,
-	type Execute,
-	type Snapshot,
+	type Tone,
 } from "../model.ts";
 
 test("run resolves with stdout", async () => {
@@ -92,6 +95,17 @@ test("parsePRView accepts a valid payload and normalizes lenient fields", () => 
 	assert.equal(pr.state, "OPEN");
 	assert.equal(pr.reviewDecision, "");
 	assert.deepEqual(pr.statusCheckRollup, []);
+	const unknownEnums = parsePRView(
+		JSON.stringify({
+			...prViewBase,
+			reviewDecision: "COMMENTED",
+			mergeStateStatus: "SOME_NEW_STATUS",
+			mergeable: "MAYBE",
+		}),
+	);
+	assert.equal(unknownEnums.reviewDecision, "");
+	assert.equal(unknownEnums.mergeStateStatus, "UNKNOWN");
+	assert.equal(unknownEnums.mergeable, "UNKNOWN");
 });
 
 test("parsePRView rejects malformed payloads", () => {
@@ -251,11 +265,27 @@ test("summarizers map lifecycle and review decisions", () => {
 	assert.equal(lifecycleOf(summaryPR({ state: "CLOSED" })), "Closed");
 	assert.equal(lifecycleOf(summaryPR({ isDraft: true })), "Draft");
 	assert.equal(lifecycleOf(summaryPR({})), "Open");
-	assert.equal(summarizeReview("APPROVED"), "Approved");
-	assert.equal(summarizeReview("CHANGES_REQUESTED"), "Changes requested");
-	assert.equal(summarizeReview("REVIEW_REQUIRED"), "Review required");
-	assert.equal(summarizeReview(""), "No review decision");
-	assert.equal(summarizeReview("COMMENTED"), "No review decision");
+	assert.equal(summarizeReview["APPROVED"], "Approved");
+	assert.equal(summarizeReview["CHANGES_REQUESTED"], "Changes requested");
+	assert.equal(summarizeReview["REVIEW_REQUIRED"], "Review required");
+	assert.equal(summarizeReview[""], "No review decision");
+});
+
+test("MERGE_TONE assigns a tone to every merge line", () => {
+	assert.deepEqual(MERGE_TONE, {
+		Merged: "success",
+		"Closed without merging": "muted",
+		"Blocked: draft": "warning",
+		"Blocked: merge conflicts": "warning",
+		"Changes requested": "warning",
+		"Blocked by repository rules": "warning",
+		"Behind base branch": "warning",
+		"Checks not passing": "warning",
+		"Merge hooks must pass": "warning",
+		"Awaiting required review": "warning",
+		"Ready to merge": "success",
+		"Merge status unknown": "muted",
+	} satisfies Record<MergeLine, Tone>);
 });
 
 test("mergeLineOf follows combined state, not conflicts alone", () => {

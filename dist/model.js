@@ -1,4 +1,17 @@
 import { execFile } from "node:child_process";
+// gh enum fields, with the fallbacks parsePRView normalizes unknowns to.
+const REVIEW_DECISIONS = ["APPROVED", "CHANGES_REQUESTED", "REVIEW_REQUIRED", ""];
+const MERGE_STATE_STATUSES = [
+    "BEHIND",
+    "BLOCKED",
+    "CLEAN",
+    "DIRTY",
+    "DRAFT",
+    "HAS_HOOKS",
+    "UNKNOWN",
+    "UNSTABLE",
+];
+const MERGEABLE_STATES = ["MERGEABLE", "CONFLICTING", "UNKNOWN"];
 export const PR_VIEW_FIELDS = [
     "url",
     "number",
@@ -92,6 +105,9 @@ function asString(data, key) {
 function optionalString(value) {
     return typeof value === "string" ? value : undefined;
 }
+function oneOf(value, allowed, fallback) {
+    return allowed.includes(value) ? value : fallback;
+}
 export function clean(value) {
     return (String(value ?? "")
         // biome-ignore lint/suspicious/noControlCharactersInRegex: strip terminal controls and bidi overrides from host-provided text.
@@ -173,9 +189,9 @@ export function parsePRView(text) {
         deletions: asNonNegativeInt(data.deletions, "deletions"),
         changedFiles: asNonNegativeInt(data.changedFiles, "changedFiles"),
         updatedAt: asString(data, "updatedAt"),
-        mergeStateStatus: typeof data.mergeStateStatus === "string" ? data.mergeStateStatus : "UNKNOWN",
-        mergeable: typeof data.mergeable === "string" ? data.mergeable : "UNKNOWN",
-        reviewDecision: typeof data.reviewDecision === "string" ? data.reviewDecision : "",
+        mergeStateStatus: oneOf(data.mergeStateStatus, MERGE_STATE_STATUSES, "UNKNOWN"),
+        mergeable: oneOf(data.mergeable, MERGEABLE_STATES, "UNKNOWN"),
+        reviewDecision: oneOf(data.reviewDecision, REVIEW_DECISIONS, ""),
         statusCheckRollup: rollup,
     };
 }
@@ -281,18 +297,12 @@ export function summarizeChecks(rollup) {
     }
     return counts;
 }
-export function summarizeReview(decision) {
-    if (decision === "APPROVED") {
-        return "Approved";
-    }
-    if (decision === "CHANGES_REQUESTED") {
-        return "Changes requested";
-    }
-    if (decision === "REVIEW_REQUIRED") {
-        return "Review required";
-    }
-    return "No review decision";
-}
+export const summarizeReview = {
+    APPROVED: "Approved",
+    CHANGES_REQUESTED: "Changes requested",
+    REVIEW_REQUIRED: "Review required",
+    "": "No review decision",
+};
 export function lifecycleOf(pr) {
     if (pr.state === "MERGED") {
         return "Merged";
@@ -302,6 +312,20 @@ export function lifecycleOf(pr) {
     }
     return pr.isDraft ? "Draft" : "Open";
 }
+const MERGE_LINES = [
+    "Merged",
+    "Closed without merging",
+    "Blocked: draft",
+    "Blocked: merge conflicts",
+    "Changes requested",
+    "Blocked by repository rules",
+    "Behind base branch",
+    "Checks not passing",
+    "Merge hooks must pass",
+    "Awaiting required review",
+    "Ready to merge",
+    "Merge status unknown",
+];
 export function mergeLineOf(pr) {
     // Order matters: the first matching blocker wins.
     if (pr.state === "MERGED") {
@@ -339,6 +363,21 @@ export function mergeLineOf(pr) {
     }
     return "Merge status unknown";
 }
+// The record must cover every MergeLine, so adding a merge line forces a choice of tone.
+export const MERGE_TONE = {
+    Merged: "success",
+    "Closed without merging": "muted",
+    "Blocked: draft": "warning",
+    "Blocked: merge conflicts": "warning",
+    "Changes requested": "warning",
+    "Blocked by repository rules": "warning",
+    "Behind base branch": "warning",
+    "Checks not passing": "warning",
+    "Merge hooks must pass": "warning",
+    "Awaiting required review": "warning",
+    "Ready to merge": "success",
+    "Merge status unknown": "muted",
+};
 export function ageOf(time, now = Date.now()) {
     const timestamp = new Date(time ?? Number.NaN).getTime();
     const seconds = Math.max(0, Math.floor((now - timestamp) / 1000));
@@ -359,25 +398,20 @@ export function ageOf(time, now = Date.now()) {
 export function summarize(pr) {
     return {
         lifecycle: lifecycleOf(pr),
-        review: summarizeReview(pr.reviewDecision),
+        review: summarizeReview[pr.reviewDecision],
         checks: summarizeChecks(pr.statusCheckRollup),
         merge: mergeLineOf(pr),
     };
 }
 const GITHUB_THROTTLE_MS = 60_000;
 const GITHUB_ACTIVITY_THROTTLE_MS = 10_000;
-export function displayError(kind) {
-    if (kind === "cli-missing") {
-        return "GitHub CLI unavailable";
-    }
-    if (kind === "auth") {
-        return "GitHub authentication required";
-    }
-    if (kind === "rate-limit") {
-        return "GitHub rate limit reached";
-    }
-    return "PR refresh failed";
-}
+export const displayError = {
+    absent: "PR refresh failed",
+    "cli-missing": "GitHub CLI unavailable",
+    auth: "GitHub authentication required",
+    "rate-limit": "GitHub rate limit reached",
+    "refresh-failed": "PR refresh failed",
+};
 export function createMonitor({ directory, publish, execute = run, now = Date.now, }) {
     let current = {
         pr: null,
@@ -501,7 +535,7 @@ export function createMonitor({ directory, publish, execute = run, now = Date.no
                 emit({ pr: null, error: "", fetchedAt: now() });
             }
             else {
-                emit({ error: displayError(kind) });
+                emit({ error: displayError[kind] });
             }
         }
         finally {

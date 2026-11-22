@@ -9,8 +9,32 @@ import { createElement as _$createElement } from "opentui:runtime-module:%40open
 /** @jsxImportSource @opentui/solid */
 import { Plugin } from "opentui:runtime-module:%40opencode%2Fplugin%2Ftui";
 import { createMemo, createSignal, onCleanup, onMount, Show } from "opentui:runtime-module:solid-js";
-import { ageOf, clean, copyToClipboard, createMonitor, openBrowser, summarize } from "./model.js";
+import { ageOf, clean, copyToClipboard, createMonitor, MERGE_TONE, openBrowser, summarize } from "./model.js";
 const POLL_MS = 5000;
+function toneColor(theme, tone) {
+  if (tone === "success") {
+    return theme.text.feedback.success.base;
+  }
+  if (tone === "error") {
+    return theme.text.feedback.error.base;
+  }
+  if (tone === "warning") {
+    return theme.text.feedback.warning.base;
+  }
+  if (tone === "muted") {
+    return theme.text.muted;
+  }
+  return theme.text.base;
+}
+function lifecycleTone(state) {
+  if (state === "MERGED") {
+    return "success";
+  }
+  if (state === "CLOSED") {
+    return "error";
+  }
+  return "base";
+}
 export default Plugin.define({
   id: "pr-sidebar",
   setup(context) {
@@ -61,15 +85,6 @@ export default Plugin.define({
       if (!lifecycle.signal.aborted) {
         toast(ok ? "PR URL copied" : "Could not copy PR URL", ok ? "success" : "error");
       }
-    }
-    function mergeFg(line) {
-      if (line === "Ready to merge" || line === "Merged") {
-        return theme().text.feedback.success.base;
-      }
-      if (line === "Closed without merging" || line === "Merge status unknown") {
-        return theme().text.muted;
-      }
-      return theme().text.feedback.warning.base;
     }
     function ActionButton(props) {
       const [over, setOver] = createSignal(false);
@@ -170,9 +185,9 @@ export default Plugin.define({
         _$insert(_el$14, () => summary().merge);
         _$insert(_el$15, () => checksLine(summary().checks));
         _$effect(_p$ => {
-          var _v$6 = props.p.state === "MERGED" ? theme().text.feedback.success.base : props.p.state === "CLOSED" ? theme().text.feedback.error.base : theme().text.base,
+          var _v$6 = toneColor(theme(), lifecycleTone(props.p.state)),
             _v$7 = theme().text.muted,
-            _v$8 = mergeFg(summary().merge),
+            _v$8 = toneColor(theme(), MERGE_TONE[summary().merge]),
             _v$9 = summary().checks.failed > 0 ? theme().text.feedback.warning.base : theme().text.muted;
           _v$6 !== _p$.e && (_p$.e = _$setProp(_el$10, "fg", _v$6, _p$.e));
           _v$7 !== _p$.t && (_p$.t = _$setProp(_el$11, "fg", _v$7, _p$.t));
