@@ -11,11 +11,7 @@ const THRESHOLD = new Set(["moderate", "high", "critical"]);
 export function advisoryIds(vulnerability) {
 	const ids = new Set();
 	for (const via of vulnerability.via ?? []) {
-		if (
-			via !== null &&
-			typeof via === "object" &&
-			typeof via.url === "string"
-		) {
+		if (via !== null && typeof via === "object" && typeof via.url === "string") {
 			const match = /\/advisories\/(GHSA-[a-z0-9-]+)/i.exec(via.url);
 			if (match) {
 				ids.add(match[1].toUpperCase());
@@ -26,13 +22,9 @@ export function advisoryIds(vulnerability) {
 }
 
 export function evaluate(report, exceptions) {
-	const allowed = new Set(
-		Object.keys(exceptions).map((id) => id.toUpperCase()),
-	);
+	const allowed = new Set(Object.keys(exceptions).map((id) => id.toUpperCase()));
 	const failures = [];
-	for (const [name, vulnerability] of Object.entries(
-		report.vulnerabilities ?? {},
-	)) {
+	for (const [name, vulnerability] of Object.entries(report.vulnerabilities ?? {})) {
 		if (!THRESHOLD.has(vulnerability.severity)) {
 			continue;
 		}
@@ -87,9 +79,7 @@ function loadReport() {
 
 export function isUsableReport(report) {
 	return (
-		report !== null &&
-		typeof report === "object" &&
-		typeof report.vulnerabilities === "object"
+		report !== null && typeof report === "object" && typeof report.vulnerabilities === "object"
 	);
 }
 
@@ -112,9 +102,7 @@ function main() {
 
 function isEntryPoint() {
 	try {
-		return (
-			realpathSync(process.argv[1] ?? "") === fileURLToPath(import.meta.url)
-		);
+		return realpathSync(process.argv[1] ?? "") === fileURLToPath(import.meta.url);
 	} catch {
 		return false;
 	}

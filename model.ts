@@ -9,6 +9,25 @@ export type CheckEntry = {
 	conclusion?: string | null;
 };
 
+// gh enum fields, with the fallbacks parsePRView normalizes unknowns to.
+const REVIEW_DECISIONS = ["APPROVED", "CHANGES_REQUESTED", "REVIEW_REQUIRED", ""] as const;
+export type ReviewDecision = (typeof REVIEW_DECISIONS)[number];
+
+const MERGE_STATE_STATUSES = [
+	"BEHIND",
+	"BLOCKED",
+	"CLEAN",
+	"DIRTY",
+	"DRAFT",
+	"HAS_HOOKS",
+	"UNKNOWN",
+	"UNSTABLE",
+] as const;
+export type MergeStateStatus = (typeof MERGE_STATE_STATUSES)[number];
+
+const MERGEABLE_STATES = ["MERGEABLE", "CONFLICTING", "UNKNOWN"] as const;
+export type Mergeable = (typeof MERGEABLE_STATES)[number];
+
 export type PullRequest = {
 	number: number;
 	url: string;
@@ -21,20 +40,15 @@ export type PullRequest = {
 	deletions: number;
 	changedFiles: number;
 	updatedAt: string;
-	mergeStateStatus: string;
-	mergeable: string;
-	reviewDecision: string;
+	mergeStateStatus: MergeStateStatus;
+	mergeable: Mergeable;
+	reviewDecision: ReviewDecision;
 	statusCheckRollup: CheckEntry[];
 	unresolvedThreads: number;
 	totalComments: number;
 };
 
-export type FetchErrorKind =
-	| "absent"
-	| "cli-missing"
-	| "auth"
-	| "rate-limit"
-	| "refresh-failed";
+export type FetchErrorKind = "absent" | "cli-missing" | "auth" | "rate-limit" | "refresh-failed";
 
 export const PR_VIEW_FIELDS = [
 	"url",
@@ -64,13 +78,17 @@ const REPO_ENV_KEYS = [
 	"GIT_INDEX_FILE",
 ] as const;
 
+export type RunOptions = {
+	cwd: string;
+	signal: AbortSignal;
+	input?: string;
+	timeoutMs?: number;
+};
+
 export function run(
 	file: string,
 	args: string[],
-	cwd: string,
-	signal: AbortSignal,
-	input?: string,
-	timeoutMs = 15000,
+	{ cwd, signal, input, timeoutMs = 15_000 }: RunOptions,
 ): Promise<string> {
 	return new Promise((resolve, reject) => {
 		const env: NodeJS.ProcessEnv = {
@@ -102,18 +120,21 @@ export function run(
 
 export type Execute = typeof run;
 
+export type Repo = {
+	root: string;
+	branch: string;
+};
+
 export async function detectRepo(
 	directory: string,
 	signal: AbortSignal,
 	execute: Execute = run,
-): Promise<{ root: string; branch: string } | null> {
+): Promise<Repo | null> {
 	try {
-		const out = await execute(
-			"git",
-			["rev-parse", "--show-toplevel", "--abbrev-ref", "HEAD"],
-			directory,
+		const out = await execute("git", ["rev-parse", "--show-toplevel", "--abbrev-ref", "HEAD"], {
+			cwd: directory,
 			signal,
-		);
+		});
 		const [root, branch] = out.trim().split("\n");
 		if (!root || !branch) {
 			return null;
@@ -129,39 +150,34 @@ export async function fetchPRView(
 	signal: AbortSignal,
 	execute: Execute = run,
 ): Promise<string> {
-	return execute(
-		"gh",
-		["pr", "view", "--json", PR_VIEW_FIELDS],
-		directory,
-		signal,
-	);
+	return execute("gh", ["pr", "view", "--json", PR_VIEW_FIELDS], { cwd: directory, signal });
 }
 
-export function countsQuery(
-	owner: string,
-	repo: string,
-	number: number,
-): string {
-	if (!Number.isInteger(number) || number < 1) {
+export function countsQuery(ref: PRRef): string {
+	if (!Number.isInteger(ref.number) || ref.number < 1) {
 		throw new Error("Invalid PR number");
 	}
-	return `query { repository(owner: ${JSON.stringify(owner)}, name: ${JSON.stringify(repo)}) { pullRequest(number: ${number}) { comments(first: 1) { totalCount } reviews(first: 1) { totalCount } reviewThreads(first: 100) { totalCount nodes { isResolved } } } } }`;
+	return `query {
+		repository(owner: ${JSON.stringify(ref.owner)}, name: ${JSON.stringify(ref.repo)}) {
+			pullRequest(number: ${ref.number}) {
+				comments(first: 1) { totalCount }
+				reviews(first: 1) { totalCount }
+				reviewThreads(first: 100) { totalCount nodes { isResolved } }
+			}
+		}
+	}`;
 }
 
 export async function fetchCounts(
-	owner: string,
-	repo: string,
-	number: number,
+	ref: PRRef,
 	directory: string,
 	signal: AbortSignal,
 	execute: Execute = run,
 ): Promise<string> {
-	return execute(
-		"gh",
-		["api", "graphql", "-f", `query=${countsQuery(owner, repo, number)}`],
-		directory,
+	return execute("gh", ["api", "graphql", "-f", `query=${countsQuery(ref)}`], {
+		cwd: directory,
 		signal,
-	);
+	});
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -187,6 +203,10 @@ function optionalString(value: unknown): string | undefined {
 	return typeof value === "string" ? value : undefined;
 }
 
+function oneOf<T extends string>(value: unknown, allowed: readonly T[], fallback: T): T {
+	return allowed.includes(value as T) ? (value as T) : fallback;
+}
+
 export function clean(value: unknown): string {
 	return (
 		String(value ?? "")
@@ -197,11 +217,13 @@ export function clean(value: unknown): string {
 	);
 }
 
-export function splitPRUrl(url: string): {
+export type PRRef = {
 	owner: string;
 	repo: string;
 	number: number;
-} {
+};
+
+export function splitPRUrl(url: string): PRRef {
 	const parsed = new URL(url);
 	if (parsed.protocol !== "https:" || parsed.username || parsed.password) {
 		throw new Error("Invalid PR URL");
@@ -210,11 +232,22 @@ export function splitPRUrl(url: string): {
 	if (!match) {
 		throw new Error("Invalid PR URL");
 	}
-	return { owner: match[1], repo: match[2], number: Number(match[3]) };
+	const [, owner, repo, num] = match;
+	if (!owner || !repo || !num) {
+		throw new Error("Invalid PR URL");
+	}
+	return { owner, repo, number: Number(num) };
 }
 
 function asNonNegativeInt(value: unknown, label: string): number {
 	if (typeof value !== "number" || !Number.isInteger(value) || value < 0) {
+		throw new Error(`Invalid PR response: ${label}`);
+	}
+	return value;
+}
+
+function asPositiveInt(value: unknown, label: string): number {
+	if (typeof value !== "number" || !Number.isInteger(value) || value < 1) {
 		throw new Error(`Invalid PR response: ${label}`);
 	}
 	return value;
@@ -232,19 +265,13 @@ export function parsePRView(
 	if (!isRecord(data)) {
 		throw new Error("Invalid PR response");
 	}
-	if (!Number.isInteger(data.number) || (data.number as number) < 1) {
-		throw new Error("Invalid PR response: number");
-	}
-	if (
-		data.state !== "OPEN" &&
-		data.state !== "CLOSED" &&
-		data.state !== "MERGED"
-	) {
+	const number = asPositiveInt(data.number, "number");
+	if (data.state !== "OPEN" && data.state !== "CLOSED" && data.state !== "MERGED") {
 		throw new Error("Invalid PR response: state");
 	}
 	const url = asString(data, "url");
 	const parts = splitPRUrl(url);
-	if (parts.number !== data.number) {
+	if (parts.number !== number) {
 		throw new Error("Invalid PR response: url number mismatch");
 	}
 	if (typeof data.isDraft !== "boolean") {
@@ -267,7 +294,7 @@ export function parsePRView(
 		}
 	}
 	return {
-		number: data.number as number,
+		number,
 		url,
 		title: asString(data, "title"),
 		state: data.state,
@@ -278,13 +305,9 @@ export function parsePRView(
 		deletions: asNonNegativeInt(data.deletions, "deletions"),
 		changedFiles: asNonNegativeInt(data.changedFiles, "changedFiles"),
 		updatedAt: asString(data, "updatedAt"),
-		mergeStateStatus:
-			typeof data.mergeStateStatus === "string"
-				? data.mergeStateStatus
-				: "UNKNOWN",
-		mergeable: typeof data.mergeable === "string" ? data.mergeable : "UNKNOWN",
-		reviewDecision:
-			typeof data.reviewDecision === "string" ? data.reviewDecision : "",
+		mergeStateStatus: oneOf(data.mergeStateStatus, MERGE_STATE_STATUSES, "UNKNOWN"),
+		mergeable: oneOf(data.mergeable, MERGEABLE_STATES, "UNKNOWN"),
+		reviewDecision: oneOf(data.reviewDecision, REVIEW_DECISIONS, ""),
 		statusCheckRollup: rollup,
 	};
 }
@@ -301,24 +324,15 @@ export function parseCounts(text: string): {
 	}
 	const root = asRecord(data, "Invalid counts response");
 	const payload = asRecord(root.data, "Invalid counts response: data");
-	const repository = asRecord(
-		payload.repository,
-		"Invalid counts response: repository",
-	);
-	const pr = asRecord(
-		repository.pullRequest,
-		"Invalid counts response: pullRequest",
-	);
+	const repository = asRecord(payload.repository, "Invalid counts response: repository");
+	const pr = asRecord(repository.pullRequest, "Invalid counts response: pullRequest");
 	const totalOf = (key: string): number => {
 		const section = asRecord(pr[key], `Invalid counts response: ${key}`);
 		return asNonNegativeInt(section.totalCount, key);
 	};
 	const comments = totalOf("comments");
 	const reviews = totalOf("reviews");
-	const threadsSection = asRecord(
-		pr.reviewThreads,
-		"Invalid counts response: reviewThreads",
-	);
+	const threadsSection = asRecord(pr.reviewThreads, "Invalid counts response: reviewThreads");
 	const threads = asNonNegativeInt(threadsSection.totalCount, "reviewThreads");
 	if (!Array.isArray(threadsSection.nodes)) {
 		throw new Error("Invalid counts response: reviewThreads nodes");
@@ -342,19 +356,13 @@ export function errorKind(error: unknown): FetchErrorKind {
 			? (error as { stderr?: unknown; message?: unknown; code?: unknown })
 			: {};
 	const text = String(detail.stderr ?? detail.message ?? "");
-	if (
-		/no pull requests? found|no GitHub remotes|none of the git remotes.*GitHub/i.test(
-			text,
-		)
-	) {
+	if (/no pull requests? found|no GitHub remotes|none of the git remotes.*GitHub/i.test(text)) {
 		return "absent";
 	}
 	if (detail.code === "ENOENT") {
 		return "cli-missing";
 	}
-	if (
-		/auth login|authentication|HTTP 401|Bad credentials|not logged/i.test(text)
-	) {
+	if (/auth login|authentication|HTTP 401|Bad credentials|not logged/i.test(text)) {
 		return "auth";
 	}
 	if (/rate limit/i.test(text)) {
@@ -423,22 +431,25 @@ export function summarizeChecks(rollup: CheckEntry[]): CheckCounts {
 	return counts;
 }
 
-export function summarizeReview(decision: string): string {
-	if (decision === "APPROVED") {
-		return "Approved";
+export function checksLineOf(counts: CheckCounts): string {
+	if (counts.passed + counts.failed + counts.pending + counts.skipped === 0) {
+		return "No checks reported";
 	}
-	if (decision === "CHANGES_REQUESTED") {
-		return "Changes requested";
+	let line = `Checks: ${counts.passed} passed / ${counts.failed} failed / ${counts.pending} pending`;
+	if (counts.skipped > 0) {
+		line += ` / ${counts.skipped} skipped`;
 	}
-	if (decision === "REVIEW_REQUIRED") {
-		return "Review required";
-	}
-	return "No review decision";
+	return line;
 }
 
-export function lifecycleOf(
-	pr: Pick<PullRequest, "state" | "isDraft">,
-): string {
+export const summarizeReview: Record<ReviewDecision, string> = {
+	APPROVED: "Approved",
+	CHANGES_REQUESTED: "Changes requested",
+	REVIEW_REQUIRED: "Review required",
+	"": "No review decision",
+};
+
+export function lifecycleOf(pr: Pick<PullRequest, "state" | "isDraft">): string {
 	if (pr.state === "MERGED") {
 		return "Merged";
 	}
@@ -448,12 +459,25 @@ export function lifecycleOf(
 	return pr.isDraft ? "Draft" : "Open";
 }
 
+const MERGE_LINES = [
+	"Merged",
+	"Closed without merging",
+	"Blocked: draft",
+	"Blocked: merge conflicts",
+	"Changes requested",
+	"Blocked by repository rules",
+	"Behind base branch",
+	"Checks not passing",
+	"Merge hooks must pass",
+	"Awaiting required review",
+	"Ready to merge",
+	"Merge status unknown",
+] as const;
+export type MergeLine = (typeof MERGE_LINES)[number];
+
 export function mergeLineOf(
-	pr: Pick<
-		PullRequest,
-		"state" | "isDraft" | "mergeStateStatus" | "mergeable" | "reviewDecision"
-	>,
-): string {
+	pr: Pick<PullRequest, "state" | "isDraft" | "mergeStateStatus" | "mergeable" | "reviewDecision">,
+): MergeLine {
 	// Order matters: the first matching blocker wins.
 	if (pr.state === "MERGED") {
 		return "Merged";
@@ -491,10 +515,25 @@ export function mergeLineOf(
 	return "Merge status unknown";
 }
 
-export function ageOf(
-	time: string | number | undefined,
-	now: number = Date.now(),
-): string {
+export type Tone = "success" | "warning" | "error" | "muted" | "base";
+
+// The record must cover every MergeLine, so adding a merge line forces a choice of tone.
+export const MERGE_TONE: Record<MergeLine, Tone> = {
+	Merged: "success",
+	"Closed without merging": "muted",
+	"Blocked: draft": "warning",
+	"Blocked: merge conflicts": "warning",
+	"Changes requested": "warning",
+	"Blocked by repository rules": "warning",
+	"Behind base branch": "warning",
+	"Checks not passing": "warning",
+	"Merge hooks must pass": "warning",
+	"Awaiting required review": "warning",
+	"Ready to merge": "success",
+	"Merge status unknown": "muted",
+};
+
+export function ageOf(time: string | number | undefined, now: number = Date.now()): string {
 	const timestamp = new Date(time ?? Number.NaN).getTime();
 	const seconds = Math.max(0, Math.floor((now - timestamp) / 1000));
 	if (!Number.isFinite(seconds)) {
@@ -506,23 +545,23 @@ export function ageOf(
 	if (seconds < 3600) {
 		return `${Math.floor(seconds / 60)}m ago`;
 	}
-	if (seconds < 86400) {
+	if (seconds < 86_400) {
 		return `${Math.floor(seconds / 3600)}h ago`;
 	}
-	return `${Math.floor(seconds / 86400)}d ago`;
+	return `${Math.floor(seconds / 86_400)}d ago`;
 }
 
 export type Summary = {
 	lifecycle: string;
 	review: string;
 	checks: CheckCounts;
-	merge: string;
+	merge: MergeLine;
 };
 
 export function summarize(pr: PullRequest): Summary {
 	return {
 		lifecycle: lifecycleOf(pr),
-		review: summarizeReview(pr.reviewDecision),
+		review: summarizeReview[pr.reviewDecision],
 		checks: summarizeChecks(pr.statusCheckRollup),
 		merge: mergeLineOf(pr),
 	};
@@ -538,21 +577,21 @@ export type Snapshot = {
 	branch?: string;
 };
 
-const GITHUB_THROTTLE_MS = 60000;
-const GITHUB_ACTIVITY_THROTTLE_MS = 10000;
+const GITHUB_THROTTLE_MS = 60_000;
+const GITHUB_ACTIVITY_THROTTLE_MS = 10_000;
 
-export function displayError(kind: FetchErrorKind): string {
-	if (kind === "cli-missing") {
-		return "GitHub CLI unavailable";
-	}
-	if (kind === "auth") {
-		return "GitHub authentication required";
-	}
-	if (kind === "rate-limit") {
-		return "GitHub rate limit reached";
-	}
-	return "PR refresh failed";
-}
+export const displayError: Record<FetchErrorKind, string> = {
+	absent: "PR refresh failed",
+	"cli-missing": "GitHub CLI unavailable",
+	auth: "GitHub authentication required",
+	"rate-limit": "GitHub rate limit reached",
+	"refresh-failed": "PR refresh failed",
+};
+
+export type Monitor = {
+	tick(force?: boolean, activity?: boolean): void;
+	stop(): void;
+};
 
 export function createMonitor({
 	directory,
@@ -564,7 +603,7 @@ export function createMonitor({
 	publish: (value: Snapshot) => void;
 	execute?: Execute;
 	now?: () => number;
-}) {
+}): Monitor {
 	let current: Snapshot = {
 		pr: null,
 		error: "",
@@ -597,49 +636,47 @@ export function createMonitor({
 		emit({ pr: null, error: "", fetchedAt: 0, loading: false });
 	};
 
-	const isStale = (
-		expected: number,
-		cwd: string,
-		signal: AbortSignal,
-	): boolean =>
+	const isStale = (expected: number, cwd: string, signal: AbortSignal): boolean =>
 		stopped || expected !== version || directory() !== cwd || signal.aborted;
 
-	async function cycle(force: boolean, activity: boolean): Promise<void> {
-		if (stopped) {
-			return;
+	// The context (empty cwd, non-repo) yields nothing: drop whatever an older context left.
+	const resetIfKey = (): void => {
+		if (key) {
+			reset("");
 		}
+	};
+
+	// Empty or changed directory: clear anything an older context published.
+	const currentDirectory = (): string => {
 		const cwd = directory();
 		if (!cwd) {
-			if (key) {
-				reset("");
-			}
-			return;
+			resetIfKey();
+			return "";
 		}
 		if (current.directory !== cwd) {
 			reset("");
 			emit({ directory: cwd });
 		}
+		return cwd;
+	};
+
+	// The detection AbortController is tracked so a reset or stop can cancel it.
+	const detect = async (cwd: string): Promise<Repo | null> => {
 		const detectController = new AbortController();
 		detection = detectController;
-		let repo: { root: string; branch: string } | null;
 		try {
-			repo = await detectRepo(cwd, detectController.signal, execute);
+			return await detectRepo(cwd, detectController.signal, execute);
 		} catch {
-			repo = null;
+			return null;
 		} finally {
 			if (detection === detectController) {
 				detection = undefined;
 			}
 		}
-		if (stopped || directory() !== cwd) {
-			return;
-		}
-		if (!repo) {
-			if (key) {
-				reset("");
-			}
-			return;
-		}
+	};
+
+	// Re-key the snapshot when the repo or branch changed, then publish the branch.
+	const syncRepo = (cwd: string, repo: Repo): void => {
 		const next = JSON.stringify([cwd, repo.root, repo.branch]);
 		if (next !== key) {
 			reset(next);
@@ -647,23 +684,44 @@ export function createMonitor({
 		if (current.branch !== repo.branch) {
 			emit({ branch: repo.branch });
 		}
-		if (repo.branch === "HEAD") {
-			return;
-		}
+	};
+
+	// One GitHub request at a time; forced ticks cancel the in-flight one, others wait.
+	const shouldFetch = (force: boolean, activity: boolean): boolean => {
 		if (request) {
 			if (!force) {
-				return;
+				return false;
 			}
 			request.abort();
 			request = undefined;
 		} else if (
 			!force &&
 			lastFetchAt > 0 &&
-			now() - lastFetchAt <
-				(activity ? GITHUB_ACTIVITY_THROTTLE_MS : GITHUB_THROTTLE_MS)
+			now() - lastFetchAt < (activity ? GITHUB_ACTIVITY_THROTTLE_MS : GITHUB_THROTTLE_MS)
 		) {
+			return false;
+		}
+		return true;
+	};
+
+	const publishError = (
+		expected: number,
+		cwd: string,
+		signal: AbortSignal,
+		error: unknown,
+	): void => {
+		if (isStale(expected, cwd, signal)) {
 			return;
 		}
+		const kind = errorKind(error);
+		if (kind === "absent") {
+			emit({ pr: null, error: "", fetchedAt: now() });
+		} else {
+			emit({ error: displayError[kind] });
+		}
+	};
+
+	const fetchAndPublish = async (cwd: string, repo: Repo): Promise<void> => {
 		const expected = version;
 		const abort = new AbortController();
 		request = abort;
@@ -679,30 +737,14 @@ export function createMonitor({
 				emit({ pr: null, error: "", fetchedAt: now() });
 				return;
 			}
-			const parts = splitPRUrl(parsed.url);
-			const countsText = await fetchCounts(
-				parts.owner,
-				parts.repo,
-				parsed.number,
-				cwd,
-				abort.signal,
-				execute,
-			);
+			const countsText = await fetchCounts(splitPRUrl(parsed.url), cwd, abort.signal, execute);
 			if (isStale(expected, cwd, abort.signal)) {
 				return;
 			}
 			const counts = parseCounts(countsText);
 			emit({ pr: { ...parsed, ...counts }, error: "", fetchedAt: now() });
 		} catch (error) {
-			if (isStale(expected, cwd, abort.signal)) {
-				return;
-			}
-			const kind = errorKind(error);
-			if (kind === "absent") {
-				emit({ pr: null, error: "", fetchedAt: now() });
-			} else {
-				emit({ error: displayError(kind) });
-			}
+			publishError(expected, cwd, abort.signal, error);
 		} finally {
 			if (request === abort) {
 				request = undefined;
@@ -711,6 +753,32 @@ export function createMonitor({
 				emit({ loading: false });
 			}
 		}
+	};
+
+	async function cycle(force: boolean, activity: boolean): Promise<void> {
+		if (stopped) {
+			return;
+		}
+		const cwd = currentDirectory();
+		if (!cwd) {
+			return;
+		}
+		const repo = await detect(cwd);
+		if (stopped || directory() !== cwd) {
+			return;
+		}
+		if (!repo) {
+			resetIfKey();
+			return;
+		}
+		syncRepo(cwd, repo);
+		if (repo.branch === "HEAD") {
+			return;
+		}
+		if (!shouldFetch(force, activity)) {
+			return;
+		}
+		await fetchAndPublish(cwd, repo);
 	}
 
 	return {
@@ -737,15 +805,16 @@ export type PlatformDeps = {
 	execute?: Execute;
 };
 
+const LAUNCHERS: Partial<Record<NodeJS.Platform, string>> = {
+	darwin: "open",
+	linux: "xdg-open",
+};
+
 export async function openBrowser(
 	url: string,
 	cwd: string,
 	signal: AbortSignal,
-	{
-		env = process.env,
-		platform = process.platform,
-		execute = run,
-	}: PlatformDeps = {},
+	{ env = process.env, platform = process.platform, execute = run }: PlatformDeps = {},
 ): Promise<string | undefined> {
 	if (signal.aborted) {
 		return;
@@ -756,17 +825,12 @@ export async function openBrowser(
 	if (platform === "linux" && !env.DISPLAY && !env.WAYLAND_DISPLAY) {
 		return "No graphical display detected. Open the URL below in your browser.";
 	}
-	const launcher =
-		platform === "darwin"
-			? "open"
-			: platform === "linux"
-				? "xdg-open"
-				: undefined;
+	const launcher = LAUNCHERS[platform];
 	if (!launcher) {
 		return "Browser opening is unavailable here. Open the URL below in your browser.";
 	}
 	try {
-		await execute(launcher, [url], cwd, signal);
+		await execute(launcher, [url], { cwd, signal });
 	} catch {
 		if (!signal.aborted) {
 			return "Could not launch a browser. Open the URL below in your browser.";
@@ -775,29 +839,34 @@ export async function openBrowser(
 	return undefined;
 }
 
+function clipboardCommand(
+	platform: NodeJS.Platform,
+	env: NodeJS.ProcessEnv,
+): { file: string; args: string[] } {
+	if (platform === "darwin") {
+		return { file: "pbcopy", args: [] };
+	}
+	if (platform === "win32") {
+		return { file: "clip", args: [] };
+	}
+	if (env.WAYLAND_DISPLAY) {
+		return { file: "wl-copy", args: [] };
+	}
+	return { file: "xclip", args: ["-selection", "clipboard"] };
+}
+
 export async function copyToClipboard(
 	text: string,
 	cwd: string,
 	signal: AbortSignal,
-	{
-		env = process.env,
-		platform = process.platform,
-		execute = run,
-	}: PlatformDeps = {},
+	{ env = process.env, platform = process.platform, execute = run }: PlatformDeps = {},
 ): Promise<boolean> {
 	if (signal.aborted) {
 		return false;
 	}
-	const command =
-		platform === "darwin"
-			? { file: "pbcopy", args: [] }
-			: platform === "win32"
-				? { file: "clip", args: [] }
-				: env.WAYLAND_DISPLAY
-					? { file: "wl-copy", args: [] }
-					: { file: "xclip", args: ["-selection", "clipboard"] };
+	const command = clipboardCommand(platform, env);
 	try {
-		await execute(command.file, command.args, cwd, signal, text);
+		await execute(command.file, command.args, { cwd, signal, input: text });
 		return !signal.aborted;
 	} catch {
 		return false;

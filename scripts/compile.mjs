@@ -37,11 +37,7 @@ writeFileSync(join(dist, "tui.js"), output);
 // declarations the root typecheck tsconfig provides.
 const compiled = spawnSync(
 	process.execPath,
-	[
-		join(root, "node_modules", "typescript", "bin", "tsc"),
-		"-p",
-		"tsconfig.dist.json",
-	],
+	[join(root, "node_modules", "typescript", "bin", "tsc"), "-p", "tsconfig.dist.json"],
 	{ cwd: root, stdio: "inherit" },
 );
 if (compiled.status !== 0) {

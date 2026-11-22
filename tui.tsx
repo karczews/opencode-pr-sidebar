@@ -1,19 +1,147 @@
 /** @jsxImportSource @opentui/solid */
 import { Plugin } from "@opencode/plugin/tui";
+import type { ResolvedTheme } from "@opencode/theme/tui";
+import type { RGBA } from "@opentui/core";
 import { createMemo, createSignal, onCleanup, onMount, Show } from "solid-js";
 import {
 	ageOf,
+	checksLineOf,
 	clean,
 	copyToClipboard,
 	createMonitor,
+	MERGE_TONE,
+	type Monitor,
 	openBrowser,
-	summarize,
-	type CheckCounts,
 	type PullRequest,
 	type Snapshot,
+	summarize,
+	type Tone,
 } from "./model.ts";
 
 const POLL_MS = 5000;
+
+function toneColor(theme: ResolvedTheme, tone: Tone): RGBA {
+	if (tone === "success") {
+		return theme.text.feedback.success.base;
+	}
+	if (tone === "error") {
+		return theme.text.feedback.error.base;
+	}
+	if (tone === "warning") {
+		return theme.text.feedback.warning.base;
+	}
+	if (tone === "muted") {
+		return theme.text.muted;
+	}
+	return theme.text.base;
+}
+
+function lifecycleTone(state: PullRequest["state"]): Tone {
+	if (state === "MERGED") {
+		return "success";
+	}
+	if (state === "CLOSED") {
+		return "error";
+	}
+	return "base";
+}
+
+function ActionButton(props: {
+	label: string;
+	theme: ResolvedTheme;
+	disabled?: boolean;
+	onPress: () => void;
+}) {
+	const [over, setOver] = createSignal(false);
+	const disabled = () => props.disabled === true;
+	const highlighted = () => over() && !disabled();
+	return (
+		<box
+			height={1}
+			flexShrink={0}
+			paddingLeft={1}
+			paddingRight={1}
+			backgroundColor={
+				highlighted() ? props.theme.background.raised.high : props.theme.background.raised.base
+			}
+			onMouseOver={() => setOver(true)}
+			onMouseOut={() => setOver(false)}
+			onMouseUp={(event) => {
+				if (event.button !== 0 || disabled()) {
+					return;
+				}
+				event.stopPropagation();
+				props.onPress();
+			}}
+		>
+			<text fg={disabled() ? props.theme.text.faint : props.theme.text.base}>{props.label}</text>
+		</box>
+	);
+}
+
+function PrCard(props: {
+	pr: PullRequest;
+	now: number;
+	loading: boolean;
+	fetchedAt: number;
+	theme: ResolvedTheme;
+	onOpen: () => void;
+}) {
+	// One memoized summary per card: the merge, review, and checks lines share it.
+	const summary = createMemo(() => summarize(props.pr));
+	return (
+		<>
+			<box>
+				<text
+					fg={props.theme.markdown.link}
+					onMouseUp={(event) => {
+						if (event.button !== 0) {
+							return;
+						}
+						event.stopPropagation();
+						void props.onOpen();
+					}}
+				>
+					<b>#{props.pr.number}</b> <a href={props.pr.url}>{clean(props.pr.title)}</a>
+				</text>
+				<text fg={props.theme.text.muted}>
+					{clean(props.pr.headRefName)} {"->"} {clean(props.pr.baseRefName)}
+				</text>
+			</box>
+			<box>
+				<text fg={toneColor(props.theme, lifecycleTone(props.pr.state))}>
+					{summary().lifecycle}
+				</text>
+				<text fg={props.theme.text.muted}>Review: {summary().review}</text>
+				<text fg={toneColor(props.theme, MERGE_TONE[summary().merge])}>
+					<b>{summary().merge}</b>
+				</text>
+				<text
+					fg={
+						summary().checks.failed > 0
+							? props.theme.text.feedback.warning.base
+							: props.theme.text.muted
+					}
+				>
+					{checksLineOf(summary().checks)}
+				</text>
+			</box>
+			<box>
+				<text fg={props.theme.text.base}>
+					+{props.pr.additions.toLocaleString()} / -{props.pr.deletions.toLocaleString()} /{" "}
+					{props.pr.changedFiles} files
+				</text>
+				<text fg={props.theme.text.muted}>
+					{props.pr.unresolvedThreads} unresolved / {props.pr.totalComments} total comments
+				</text>
+				<text fg={props.theme.text.muted}>Updated {ageOf(props.pr.updatedAt, props.now)}</text>
+				<text fg={props.theme.text.muted}>
+					{props.loading ? "Refreshing..." : `Checked ${ageOf(props.fetchedAt, props.now)}`}
+				</text>
+			</box>
+		</>
+	);
+}
 
 export default Plugin.define({
 	id: "pr-sidebar",
@@ -26,7 +154,7 @@ export default Plugin.define({
 			loading: false,
 		});
 		const [expanded, setExpanded] = createSignal(true);
-		let monitor: ReturnType<typeof createMonitor> | undefined;
+		let monitor: Monitor | undefined;
 		const lifecycle = new AbortController();
 
 		const directory = () => {
@@ -42,21 +170,15 @@ export default Plugin.define({
 		// Hide PR data fetched for a previous directory while the monitor catches up.
 		const pr = () => (state().directory === directory() ? state().pr : null);
 		const theme = () => context.theme;
-		const toast = (
-			message: string,
-			variant: "info" | "success" | "warning" | "error" = "info",
-		) => context.ui.toast.show({ title: "Pull Request", message, variant });
+		const toast = (message: string, variant: "info" | "success" | "warning" | "error" = "info") =>
+			context.ui.toast.show({ title: "Pull Request", message, variant });
 
 		async function open() {
 			const value = pr();
 			if (!value) {
 				return;
 			}
-			const message = await openBrowser(
-				value.url,
-				directory(),
-				lifecycle.signal,
-			);
+			const message = await openBrowser(value.url, directory(), lifecycle.signal);
 			if (message && !lifecycle.signal.aborted) {
 				toast(`${message} ${value.url}`, "warning");
 			}
@@ -67,139 +189,10 @@ export default Plugin.define({
 			if (!value) {
 				return;
 			}
-			const ok = await copyToClipboard(
-				value.url,
-				directory(),
-				lifecycle.signal,
-			);
+			const ok = await copyToClipboard(value.url, directory(), lifecycle.signal);
 			if (!lifecycle.signal.aborted) {
-				toast(
-					ok ? "PR URL copied" : "Could not copy PR URL",
-					ok ? "success" : "error",
-				);
+				toast(ok ? "PR URL copied" : "Could not copy PR URL", ok ? "success" : "error");
 			}
-		}
-
-		function mergeFg(line: string) {
-			if (line === "Ready to merge" || line === "Merged") {
-				return theme().text.feedback.success.base;
-			}
-			if (
-				line === "Closed without merging" ||
-				line === "Merge status unknown"
-			) {
-				return theme().text.muted;
-			}
-			return theme().text.feedback.warning.base;
-		}
-
-		function ActionButton(props: {
-			label: string;
-			disabled?: boolean;
-			onPress: () => void;
-		}) {
-			const [over, setOver] = createSignal(false);
-			const disabled = () => props.disabled === true;
-			const highlighted = () => over() && !disabled();
-			return (
-				<box
-					height={1}
-					flexShrink={0}
-					paddingLeft={1}
-					paddingRight={1}
-					backgroundColor={
-						highlighted()
-							? theme().background.raised.high
-							: theme().background.raised.base
-					}
-					onMouseOver={() => setOver(true)}
-					onMouseOut={() => setOver(false)}
-					onMouseUp={(event) => {
-						if (event.button !== 0 || disabled()) {
-							return;
-						}
-						event.stopPropagation();
-						props.onPress();
-					}}
-				>
-					<text fg={disabled() ? theme().text.faint : theme().text.base}>
-						{props.label}
-					</text>
-				</box>
-			);
-		}
-
-		function PrCard(props: { p: PullRequest }) {
-			// One memoized summary per card: the previous code derived the merge,
-			// review, and checks lines with separate calls.
-			const summary = createMemo(() => summarize(props.p));
-			return (
-				<>
-					<box>
-						<text
-							fg={theme().markdown.link}
-							onMouseUp={(event) => {
-								if (event.button !== 0) {
-									return;
-								}
-								event.stopPropagation();
-								void open();
-							}}
-						>
-							<b>#{props.p.number}</b>{" "}
-							<a href={props.p.url}>{clean(props.p.title)}</a>
-						</text>
-						<text fg={theme().text.muted}>
-							{clean(props.p.headRefName)} -&gt; {clean(props.p.baseRefName)}
-						</text>
-					</box>
-					<box>
-						<text
-							fg={
-								props.p.state === "MERGED"
-									? theme().text.feedback.success.base
-									: props.p.state === "CLOSED"
-										? theme().text.feedback.error.base
-										: theme().text.base
-							}
-						>
-							{summary().lifecycle}
-						</text>
-						<text fg={theme().text.muted}>Review: {summary().review}</text>
-						<text fg={mergeFg(summary().merge)}>
-							<b>{summary().merge}</b>
-						</text>
-						<text
-							fg={
-								summary().checks.failed > 0
-									? theme().text.feedback.warning.base
-									: theme().text.muted
-							}
-						>
-							{checksLine(summary().checks)}
-						</text>
-					</box>
-					<box>
-						<text fg={theme().text.base}>
-							+{props.p.additions.toLocaleString()} / -
-							{props.p.deletions.toLocaleString()} / {props.p.changedFiles}{" "}
-							files
-						</text>
-						<text fg={theme().text.muted}>
-							{props.p.unresolvedThreads} unresolved / {props.p.totalComments}{" "}
-							total comments
-						</text>
-						<text fg={theme().text.muted}>
-							Updated {ageOf(props.p.updatedAt, state().now)}
-						</text>
-						<text fg={theme().text.muted}>
-							{state().loading
-								? "Refreshing..."
-								: `Checked ${ageOf(state().fetchedAt, state().now)}`}
-						</text>
-					</box>
-				</>
-			);
 		}
 
 		function Card() {
@@ -238,7 +231,18 @@ export default Plugin.define({
 					</box>
 					{expanded() ? (
 						<>
-							<Show when={pr()}>{(p) => <PrCard p={p()} />}</Show>
+							<Show when={pr()}>
+								{(p) => (
+									<PrCard
+										pr={p()}
+										now={state().now}
+										loading={state().loading}
+										fetchedAt={state().fetchedAt}
+										theme={theme()}
+										onOpen={open}
+									/>
+								)}
+							</Show>
 							{state().error ? (
 								<text fg={theme().text.feedback.warning.base}>
 									{pr() ? "STALE: " : ""}
@@ -248,11 +252,12 @@ export default Plugin.define({
 							<box flexDirection="row" gap={1} flexWrap="wrap">
 								<ActionButton
 									label={state().loading ? "Refreshing" : "Refresh"}
+									theme={theme()}
 									disabled={state().loading}
 									onPress={() => monitor?.tick(true)}
 								/>
-								<ActionButton label="Copy URL" onPress={() => void copy()} />
-								<ActionButton label="Open" onPress={() => void open()} />
+								<ActionButton label="Copy URL" theme={theme()} onPress={() => void copy()} />
+								<ActionButton label="Open" theme={theme()} onPress={() => void open()} />
 							</box>
 						</>
 					) : null}
@@ -304,14 +309,3 @@ export default Plugin.define({
 		};
 	},
 });
-
-function checksLine(counts: CheckCounts): string {
-	if (counts.passed + counts.failed + counts.pending + counts.skipped === 0) {
-		return "No checks reported";
-	}
-	let line = `Checks: ${counts.passed} passed / ${counts.failed} failed / ${counts.pending} pending`;
-	if (counts.skipped > 0) {
-		line += ` / ${counts.skipped} skipped`;
-	}
-	return line;
-}

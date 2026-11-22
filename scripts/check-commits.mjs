@@ -9,9 +9,7 @@ import { fileURLToPath } from "node:url";
 // commits (2+ parents) are skipped; matching on the subject prefix alone
 // would let any "Merge ..." message through.
 const TYPES = ["feat", "fix", "docs", "chore", "refactor", "test", "perf"];
-const HEADER = new RegExp(
-	`^(${TYPES.join("|")})(\\([^()\\s]+\\))?!?: (\\S[\\s\\S]*)$`,
-);
+const HEADER = new RegExp(`^(${TYPES.join("|")})(\\([^()\\s]+\\))?!?: (\\S[\\s\\S]*)$`);
 
 export function checkMessage(header, merge = false) {
 	if (merge) {
@@ -99,16 +97,12 @@ if (isEntryPoint()) {
 	if (failed) {
 		process.exit(1);
 	}
-	console.log(
-		`lint-commits ok (${lines.length} commit(s) in ${effectiveRange})`,
-	);
+	console.log(`lint-commits ok (${lines.length} commit(s) in ${effectiveRange})`);
 }
 
 function isEntryPoint() {
 	try {
-		return (
-			realpathSync(process.argv[1] ?? "") === fileURLToPath(import.meta.url)
-		);
+		return realpathSync(process.argv[1] ?? "") === fileURLToPath(import.meta.url);
 	} catch {
 		return false;
 	}

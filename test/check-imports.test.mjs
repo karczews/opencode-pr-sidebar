@@ -7,11 +7,7 @@ import { runtimeSpecifiers } from "../scripts/check-imports.mjs";
 // semicolon-less statements, property calls, escapes) guard regressions of
 // the fixes in scripts/check-imports.mjs.
 const CASES = [
-	[
-		"value import",
-		'import { Plugin } from "@opencode/plugin/tui";',
-		["@opencode/plugin/tui"],
-	],
+	["value import", 'import { Plugin } from "@opencode/plugin/tui";', ["@opencode/plugin/tui"]],
 	[
 		"multiline import with inline type members",
 		'import {\n\ttype CheckCounts,\n\tclean,\n} from "./model.ts";',
@@ -79,11 +75,7 @@ const CASES = [
 		'const cmd = `run ${require("node:child_process")}`;',
 		["node:child_process"],
 	],
-	[
-		"escaped specifier is decoded",
-		String.raw`await import("./a\tb");`,
-		["./a\tb"],
-	],
+	["escaped specifier is decoded", String.raw`await import("./a\tb");`, ["./a\tb"]],
 	[
 		"string contents are not code",
 		'const s = \'import x from "evil"\';\nimport { A } from "node:fs";',
@@ -94,21 +86,9 @@ const CASES = [
 		'// import { X } from "evil";\n/* import "evil" */\nimport { A } from "node:fs";',
 		["node:fs"],
 	],
-	[
-		"computed dynamic import is non-literal",
-		'await import("./model.js" + suffix);',
-		[null],
-	],
-	[
-		"computed specifier prefix is non-literal",
-		'await import("node:" + name);',
-		[null],
-	],
-	[
-		"default import named async",
-		'import async from "missing-package";',
-		["missing-package"],
-	],
+	["computed dynamic import is non-literal", 'await import("./model.js" + suffix);', [null]],
+	["computed specifier prefix is non-literal", 'await import("node:" + name);', [null]],
+	["default import named async", 'import async from "missing-package";', ["missing-package"]],
 	[
 		"namespace re-export named default",
 		'export * as default from "./adapter.js";',
@@ -125,11 +105,7 @@ const CASES = [
 		["./adapter.js"],
 	],
 	["zero-argument require records nothing", "require();", []],
-	[
-		"annotation import query fails closed",
-		'let x: import("./types").Foo;',
-		["./types"],
-	],
+	["annotation import query fails closed", 'let x: import("./types").Foo;', ["./types"]],
 	[
 		"control-head regex is not division",
 		'if (ready) /require("external-adapter")/.test(text);',
@@ -151,16 +127,8 @@ const CASES = [
 		'const s = tag`${/require("external-adapter")/.test(s)}`;',
 		[],
 	],
-	[
-		"backslash line continuation in specifier",
-		'import("no\\\n' + 'de:fs");',
-		["node:fs"],
-	],
-	[
-		"U+2028 ends line comments",
-		'// note\u2028import "missing-package";',
-		["missing-package"],
-	],
+	["backslash line continuation in specifier", 'import("no\\\n' + 'de:fs");', ["node:fs"]],
+	["U+2028 ends line comments", '// note\u2028import "missing-package";', ["missing-package"]],
 	[
 		"clause continues on the next line",
 		'import { adapter }\nfrom "./adapter.js";',
@@ -186,21 +154,9 @@ const CASES = [
 		'if (require("node:fs")) /require("external-adapter")/.test(text);',
 		["node:fs"],
 	],
-	[
-		"non-breaking space separates tokens",
-		'import\u00a0"missing-package";',
-		["missing-package"],
-	],
-	[
-		"clause continues across CRLF",
-		'import { adapter }\r\nfrom "./adapter.js";',
-		["./adapter.js"],
-	],
-	[
-		"spread is not property access",
-		'[...require("external-adapter")];',
-		["external-adapter"],
-	],
+	["non-breaking space separates tokens", 'import\u00a0"missing-package";', ["missing-package"]],
+	["clause continues across CRLF", 'import { adapter }\r\nfrom "./adapter.js";', ["./adapter.js"]],
+	["spread is not property access", '[...require("external-adapter")];', ["external-adapter"]],
 	[
 		"for-of separator allows a regex",
 		'for (const match of /require("external-adapter")/.exec(text) ?? []) {}',
@@ -221,36 +177,16 @@ const CASES = [
 		'const of = 10;\nfor (let n = of / Number(require("external-adapter")); n > 0; n--) {}',
 		["external-adapter"],
 	],
-	[
-		"ogham space separates tokens",
-		'require\u1680("external-adapter");',
-		["external-adapter"],
-	],
-	[
-		"line separator before dynamic import parens",
-		'import\u2028("node:fs");',
-		["node:fs"],
-	],
+	["ogham space separates tokens", 'require\u1680("external-adapter");', ["external-adapter"]],
+	["line separator before dynamic import parens", 'import\u2028("node:fs");', ["node:fs"]],
 	[
 		"paragraph separator before require parens",
 		'const x = require\u2029("node:path");',
 		["node:path"],
 	],
-	[
-		"line separator before import clause",
-		'import\u2028{ A } from "node:fs";',
-		["node:fs"],
-	],
-	[
-		"parenthesized string specifier is transparent",
-		'import(("node:fs"));',
-		["node:fs"],
-	],
-	[
-		"parenthesized computed specifier is non-literal",
-		'import(("node:fs") + name);',
-		[null],
-	],
+	["line separator before import clause", 'import\u2028{ A } from "node:fs";', ["node:fs"]],
+	["parenthesized string specifier is transparent", 'import(("node:fs"));', ["node:fs"]],
+	["parenthesized computed specifier is non-literal", 'import(("node:fs") + name);', [null]],
 	[
 		"parenthesized specifier with options argument",
 		'import(("node:fs"), { with: { type: "json" } });',

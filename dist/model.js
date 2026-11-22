@@ -1,4 +1,17 @@
 import { execFile } from "node:child_process";
+// gh enum fields, with the fallbacks parsePRView normalizes unknowns to.
+const REVIEW_DECISIONS = ["APPROVED", "CHANGES_REQUESTED", "REVIEW_REQUIRED", ""];
+const MERGE_STATE_STATUSES = [
+    "BEHIND",
+    "BLOCKED",
+    "CLEAN",
+    "DIRTY",
+    "DRAFT",
+    "HAS_HOOKS",
+    "UNKNOWN",
+    "UNSTABLE",
+];
+const MERGEABLE_STATES = ["MERGEABLE", "CONFLICTING", "UNKNOWN"];
 export const PR_VIEW_FIELDS = [
     "url",
     "number",
@@ -24,7 +37,7 @@ const REPO_ENV_KEYS = [
     "GIT_COMMON_DIR",
     "GIT_INDEX_FILE",
 ];
-export function run(file, args, cwd, signal, input, timeoutMs = 15000) {
+export function run(file, args, { cwd, signal, input, timeoutMs = 15_000 }) {
     return new Promise((resolve, reject) => {
         const env = {
             ...process.env,
@@ -50,7 +63,10 @@ export function run(file, args, cwd, signal, input, timeoutMs = 15000) {
 }
 export async function detectRepo(directory, signal, execute = run) {
     try {
-        const out = await execute("git", ["rev-parse", "--show-toplevel", "--abbrev-ref", "HEAD"], directory, signal);
+        const out = await execute("git", ["rev-parse", "--show-toplevel", "--abbrev-ref", "HEAD"], {
+            cwd: directory,
+            signal,
+        });
         const [root, branch] = out.trim().split("\n");
         if (!root || !branch) {
             return null;
@@ -62,16 +78,27 @@ export async function detectRepo(directory, signal, execute = run) {
     }
 }
 export async function fetchPRView(directory, signal, execute = run) {
-    return execute("gh", ["pr", "view", "--json", PR_VIEW_FIELDS], directory, signal);
+    return execute("gh", ["pr", "view", "--json", PR_VIEW_FIELDS], { cwd: directory, signal });
 }
-export function countsQuery(owner, repo, number) {
-    if (!Number.isInteger(number) || number < 1) {
+export function countsQuery(ref) {
+    if (!Number.isInteger(ref.number) || ref.number < 1) {
         throw new Error("Invalid PR number");
     }
-    return `query { repository(owner: ${JSON.stringify(owner)}, name: ${JSON.stringify(repo)}) { pullRequest(number: ${number}) { comments(first: 1) { totalCount } reviews(first: 1) { totalCount } reviewThreads(first: 100) { totalCount nodes { isResolved } } } } }`;
+    return `query {
+		repository(owner: ${JSON.stringify(ref.owner)}, name: ${JSON.stringify(ref.repo)}) {
+			pullRequest(number: ${ref.number}) {
+				comments(first: 1) { totalCount }
+				reviews(first: 1) { totalCount }
+				reviewThreads(first: 100) { totalCount nodes { isResolved } }
+			}
+		}
+	}`;
 }
-export async function fetchCounts(owner, repo, number, directory, signal, execute = run) {
-    return execute("gh", ["api", "graphql", "-f", `query=${countsQuery(owner, repo, number)}`], directory, signal);
+export async function fetchCounts(ref, directory, signal, execute = run) {
+    return execute("gh", ["api", "graphql", "-f", `query=${countsQuery(ref)}`], {
+        cwd: directory,
+        signal,
+    });
 }
 function isRecord(value) {
     return typeof value === "object" && value !== null;
@@ -92,6 +119,9 @@ function asString(data, key) {
 function optionalString(value) {
     return typeof value === "string" ? value : undefined;
 }
+function oneOf(value, allowed, fallback) {
+    return allowed.includes(value) ? value : fallback;
+}
 export function clean(value) {
     return (String(value ?? "")
         // biome-ignore lint/suspicious/noControlCharactersInRegex: strip terminal controls and bidi overrides from host-provided text.
@@ -108,10 +138,20 @@ export function splitPRUrl(url) {
     if (!match) {
         throw new Error("Invalid PR URL");
     }
-    return { owner: match[1], repo: match[2], number: Number(match[3]) };
+    const [, owner, repo, num] = match;
+    if (!owner || !repo || !num) {
+        throw new Error("Invalid PR URL");
+    }
+    return { owner, repo, number: Number(num) };
 }
 function asNonNegativeInt(value, label) {
     if (typeof value !== "number" || !Number.isInteger(value) || value < 0) {
+        throw new Error(`Invalid PR response: ${label}`);
+    }
+    return value;
+}
+function asPositiveInt(value, label) {
+    if (typeof value !== "number" || !Number.isInteger(value) || value < 1) {
         throw new Error(`Invalid PR response: ${label}`);
     }
     return value;
@@ -127,17 +167,13 @@ export function parsePRView(text) {
     if (!isRecord(data)) {
         throw new Error("Invalid PR response");
     }
-    if (!Number.isInteger(data.number) || data.number < 1) {
-        throw new Error("Invalid PR response: number");
-    }
-    if (data.state !== "OPEN" &&
-        data.state !== "CLOSED" &&
-        data.state !== "MERGED") {
+    const number = asPositiveInt(data.number, "number");
+    if (data.state !== "OPEN" && data.state !== "CLOSED" && data.state !== "MERGED") {
         throw new Error("Invalid PR response: state");
     }
     const url = asString(data, "url");
     const parts = splitPRUrl(url);
-    if (parts.number !== data.number) {
+    if (parts.number !== number) {
         throw new Error("Invalid PR response: url number mismatch");
     }
     if (typeof data.isDraft !== "boolean") {
@@ -160,7 +196,7 @@ export function parsePRView(text) {
         }
     }
     return {
-        number: data.number,
+        number,
         url,
         title: asString(data, "title"),
         state: data.state,
@@ -171,11 +207,9 @@ export function parsePRView(text) {
         deletions: asNonNegativeInt(data.deletions, "deletions"),
         changedFiles: asNonNegativeInt(data.changedFiles, "changedFiles"),
         updatedAt: asString(data, "updatedAt"),
-        mergeStateStatus: typeof data.mergeStateStatus === "string"
-            ? data.mergeStateStatus
-            : "UNKNOWN",
-        mergeable: typeof data.mergeable === "string" ? data.mergeable : "UNKNOWN",
-        reviewDecision: typeof data.reviewDecision === "string" ? data.reviewDecision : "",
+        mergeStateStatus: oneOf(data.mergeStateStatus, MERGE_STATE_STATUSES, "UNKNOWN"),
+        mergeable: oneOf(data.mergeable, MERGEABLE_STATES, "UNKNOWN"),
+        reviewDecision: oneOf(data.reviewDecision, REVIEW_DECISIONS, ""),
         statusCheckRollup: rollup,
     };
 }
@@ -281,18 +315,22 @@ export function summarizeChecks(rollup) {
     }
     return counts;
 }
-export function summarizeReview(decision) {
-    if (decision === "APPROVED") {
-        return "Approved";
+export function checksLineOf(counts) {
+    if (counts.passed + counts.failed + counts.pending + counts.skipped === 0) {
+        return "No checks reported";
     }
-    if (decision === "CHANGES_REQUESTED") {
-        return "Changes requested";
+    let line = `Checks: ${counts.passed} passed / ${counts.failed} failed / ${counts.pending} pending`;
+    if (counts.skipped > 0) {
+        line += ` / ${counts.skipped} skipped`;
     }
-    if (decision === "REVIEW_REQUIRED") {
-        return "Review required";
-    }
-    return "No review decision";
+    return line;
 }
+export const summarizeReview = {
+    APPROVED: "Approved",
+    CHANGES_REQUESTED: "Changes requested",
+    REVIEW_REQUIRED: "Review required",
+    "": "No review decision",
+};
 export function lifecycleOf(pr) {
     if (pr.state === "MERGED") {
         return "Merged";
@@ -302,6 +340,20 @@ export function lifecycleOf(pr) {
     }
     return pr.isDraft ? "Draft" : "Open";
 }
+const MERGE_LINES = [
+    "Merged",
+    "Closed without merging",
+    "Blocked: draft",
+    "Blocked: merge conflicts",
+    "Changes requested",
+    "Blocked by repository rules",
+    "Behind base branch",
+    "Checks not passing",
+    "Merge hooks must pass",
+    "Awaiting required review",
+    "Ready to merge",
+    "Merge status unknown",
+];
 export function mergeLineOf(pr) {
     // Order matters: the first matching blocker wins.
     if (pr.state === "MERGED") {
@@ -339,6 +391,21 @@ export function mergeLineOf(pr) {
     }
     return "Merge status unknown";
 }
+// The record must cover every MergeLine, so adding a merge line forces a choice of tone.
+export const MERGE_TONE = {
+    Merged: "success",
+    "Closed without merging": "muted",
+    "Blocked: draft": "warning",
+    "Blocked: merge conflicts": "warning",
+    "Changes requested": "warning",
+    "Blocked by repository rules": "warning",
+    "Behind base branch": "warning",
+    "Checks not passing": "warning",
+    "Merge hooks must pass": "warning",
+    "Awaiting required review": "warning",
+    "Ready to merge": "success",
+    "Merge status unknown": "muted",
+};
 export function ageOf(time, now = Date.now()) {
     const timestamp = new Date(time ?? Number.NaN).getTime();
     const seconds = Math.max(0, Math.floor((now - timestamp) / 1000));
@@ -351,33 +418,28 @@ export function ageOf(time, now = Date.now()) {
     if (seconds < 3600) {
         return `${Math.floor(seconds / 60)}m ago`;
     }
-    if (seconds < 86400) {
+    if (seconds < 86_400) {
         return `${Math.floor(seconds / 3600)}h ago`;
     }
-    return `${Math.floor(seconds / 86400)}d ago`;
+    return `${Math.floor(seconds / 86_400)}d ago`;
 }
 export function summarize(pr) {
     return {
         lifecycle: lifecycleOf(pr),
-        review: summarizeReview(pr.reviewDecision),
+        review: summarizeReview[pr.reviewDecision],
         checks: summarizeChecks(pr.statusCheckRollup),
         merge: mergeLineOf(pr),
     };
 }
-const GITHUB_THROTTLE_MS = 60000;
-const GITHUB_ACTIVITY_THROTTLE_MS = 10000;
-export function displayError(kind) {
-    if (kind === "cli-missing") {
-        return "GitHub CLI unavailable";
-    }
-    if (kind === "auth") {
-        return "GitHub authentication required";
-    }
-    if (kind === "rate-limit") {
-        return "GitHub rate limit reached";
-    }
-    return "PR refresh failed";
-}
+const GITHUB_THROTTLE_MS = 60_000;
+const GITHUB_ACTIVITY_THROTTLE_MS = 10_000;
+export const displayError = {
+    absent: "PR refresh failed",
+    "cli-missing": "GitHub CLI unavailable",
+    auth: "GitHub authentication required",
+    "rate-limit": "GitHub rate limit reached",
+    "refresh-failed": "PR refresh failed",
+};
 export function createMonitor({ directory, publish, execute = run, now = Date.now, }) {
     let current = {
         pr: null,
@@ -409,44 +471,43 @@ export function createMonitor({ directory, publish, execute = run, now = Date.no
         emit({ pr: null, error: "", fetchedAt: 0, loading: false });
     };
     const isStale = (expected, cwd, signal) => stopped || expected !== version || directory() !== cwd || signal.aborted;
-    async function cycle(force, activity) {
-        if (stopped) {
-            return;
+    // The context (empty cwd, non-repo) yields nothing: drop whatever an older context left.
+    const resetIfKey = () => {
+        if (key) {
+            reset("");
         }
+    };
+    // Empty or changed directory: clear anything an older context published.
+    const currentDirectory = () => {
         const cwd = directory();
         if (!cwd) {
-            if (key) {
-                reset("");
-            }
-            return;
+            resetIfKey();
+            return "";
         }
         if (current.directory !== cwd) {
             reset("");
             emit({ directory: cwd });
         }
+        return cwd;
+    };
+    // The detection AbortController is tracked so a reset or stop can cancel it.
+    const detect = async (cwd) => {
         const detectController = new AbortController();
         detection = detectController;
-        let repo;
         try {
-            repo = await detectRepo(cwd, detectController.signal, execute);
+            return await detectRepo(cwd, detectController.signal, execute);
         }
         catch {
-            repo = null;
+            return null;
         }
         finally {
             if (detection === detectController) {
                 detection = undefined;
             }
         }
-        if (stopped || directory() !== cwd) {
-            return;
-        }
-        if (!repo) {
-            if (key) {
-                reset("");
-            }
-            return;
-        }
+    };
+    // Re-key the snapshot when the repo or branch changed, then publish the branch.
+    const syncRepo = (cwd, repo) => {
         const next = JSON.stringify([cwd, repo.root, repo.branch]);
         if (next !== key) {
             reset(next);
@@ -454,22 +515,36 @@ export function createMonitor({ directory, publish, execute = run, now = Date.no
         if (current.branch !== repo.branch) {
             emit({ branch: repo.branch });
         }
-        if (repo.branch === "HEAD") {
-            return;
-        }
+    };
+    // One GitHub request at a time; forced ticks cancel the in-flight one, others wait.
+    const shouldFetch = (force, activity) => {
         if (request) {
             if (!force) {
-                return;
+                return false;
             }
             request.abort();
             request = undefined;
         }
         else if (!force &&
             lastFetchAt > 0 &&
-            now() - lastFetchAt <
-                (activity ? GITHUB_ACTIVITY_THROTTLE_MS : GITHUB_THROTTLE_MS)) {
+            now() - lastFetchAt < (activity ? GITHUB_ACTIVITY_THROTTLE_MS : GITHUB_THROTTLE_MS)) {
+            return false;
+        }
+        return true;
+    };
+    const publishError = (expected, cwd, signal, error) => {
+        if (isStale(expected, cwd, signal)) {
             return;
         }
+        const kind = errorKind(error);
+        if (kind === "absent") {
+            emit({ pr: null, error: "", fetchedAt: now() });
+        }
+        else {
+            emit({ error: displayError[kind] });
+        }
+    };
+    const fetchAndPublish = async (cwd, repo) => {
         const expected = version;
         const abort = new AbortController();
         request = abort;
@@ -485,8 +560,7 @@ export function createMonitor({ directory, publish, execute = run, now = Date.no
                 emit({ pr: null, error: "", fetchedAt: now() });
                 return;
             }
-            const parts = splitPRUrl(parsed.url);
-            const countsText = await fetchCounts(parts.owner, parts.repo, parsed.number, cwd, abort.signal, execute);
+            const countsText = await fetchCounts(splitPRUrl(parsed.url), cwd, abort.signal, execute);
             if (isStale(expected, cwd, abort.signal)) {
                 return;
             }
@@ -494,16 +568,7 @@ export function createMonitor({ directory, publish, execute = run, now = Date.no
             emit({ pr: { ...parsed, ...counts }, error: "", fetchedAt: now() });
         }
         catch (error) {
-            if (isStale(expected, cwd, abort.signal)) {
-                return;
-            }
-            const kind = errorKind(error);
-            if (kind === "absent") {
-                emit({ pr: null, error: "", fetchedAt: now() });
-            }
-            else {
-                emit({ error: displayError(kind) });
-            }
+            publishError(expected, cwd, abort.signal, error);
         }
         finally {
             if (request === abort) {
@@ -513,6 +578,31 @@ export function createMonitor({ directory, publish, execute = run, now = Date.no
                 emit({ loading: false });
             }
         }
+    };
+    async function cycle(force, activity) {
+        if (stopped) {
+            return;
+        }
+        const cwd = currentDirectory();
+        if (!cwd) {
+            return;
+        }
+        const repo = await detect(cwd);
+        if (stopped || directory() !== cwd) {
+            return;
+        }
+        if (!repo) {
+            resetIfKey();
+            return;
+        }
+        syncRepo(cwd, repo);
+        if (repo.branch === "HEAD") {
+            return;
+        }
+        if (!shouldFetch(force, activity)) {
+            return;
+        }
+        await fetchAndPublish(cwd, repo);
     }
     return {
         tick(force = false, activity = false) {
@@ -531,7 +621,11 @@ export function createMonitor({ directory, publish, execute = run, now = Date.no
         },
     };
 }
-export async function openBrowser(url, cwd, signal, { env = process.env, platform = process.platform, execute = run, } = {}) {
+const LAUNCHERS = {
+    darwin: "open",
+    linux: "xdg-open",
+};
+export async function openBrowser(url, cwd, signal, { env = process.env, platform = process.platform, execute = run } = {}) {
     if (signal.aborted) {
         return;
     }
@@ -541,16 +635,12 @@ export async function openBrowser(url, cwd, signal, { env = process.env, platfor
     if (platform === "linux" && !env.DISPLAY && !env.WAYLAND_DISPLAY) {
         return "No graphical display detected. Open the URL below in your browser.";
     }
-    const launcher = platform === "darwin"
-        ? "open"
-        : platform === "linux"
-            ? "xdg-open"
-            : undefined;
+    const launcher = LAUNCHERS[platform];
     if (!launcher) {
         return "Browser opening is unavailable here. Open the URL below in your browser.";
     }
     try {
-        await execute(launcher, [url], cwd, signal);
+        await execute(launcher, [url], { cwd, signal });
     }
     catch {
         if (!signal.aborted) {
@@ -559,19 +649,25 @@ export async function openBrowser(url, cwd, signal, { env = process.env, platfor
     }
     return undefined;
 }
-export async function copyToClipboard(text, cwd, signal, { env = process.env, platform = process.platform, execute = run, } = {}) {
+function clipboardCommand(platform, env) {
+    if (platform === "darwin") {
+        return { file: "pbcopy", args: [] };
+    }
+    if (platform === "win32") {
+        return { file: "clip", args: [] };
+    }
+    if (env.WAYLAND_DISPLAY) {
+        return { file: "wl-copy", args: [] };
+    }
+    return { file: "xclip", args: ["-selection", "clipboard"] };
+}
+export async function copyToClipboard(text, cwd, signal, { env = process.env, platform = process.platform, execute = run } = {}) {
     if (signal.aborted) {
         return false;
     }
-    const command = platform === "darwin"
-        ? { file: "pbcopy", args: [] }
-        : platform === "win32"
-            ? { file: "clip", args: [] }
-            : env.WAYLAND_DISPLAY
-                ? { file: "wl-copy", args: [] }
-                : { file: "xclip", args: ["-selection", "clipboard"] };
+    const command = clipboardCommand(platform, env);
     try {
-        await execute(command.file, command.args, cwd, signal, text);
+        await execute(command.file, command.args, { cwd, signal, input: text });
         return !signal.aborted;
     }
     catch {

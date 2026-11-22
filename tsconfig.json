@@ -10,7 +10,15 @@
 		"skipLibCheck": true,
 		"jsx": "react-jsx",
 		"jsxImportSource": "@opentui/solid",
-		"types": ["node"]
+		"types": ["node"],
+		"noUnusedLocals": true,
+		"noUnusedParameters": true,
+		"noImplicitReturns": true,
+		"noFallthroughCasesInSwitch": true,
+		"noImplicitOverride": true,
+		"verbatimModuleSyntax": true,
+		"erasableSyntaxOnly": true,
+		"noUncheckedIndexedAccess": true
 	},
 	"include": ["tui.tsx", "model.ts", "test/model.test.ts"]
 }

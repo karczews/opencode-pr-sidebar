@@ -2,35 +2,39 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
 	ageOf,
+	checksLineOf,
 	clean,
 	copyToClipboard,
 	countsQuery,
 	createMonitor,
 	detectRepo,
+	type Execute,
 	errorKind,
 	fetchCounts,
 	fetchPRView,
 	lifecycleOf,
+	MERGE_TONE,
+	type MergeLine,
 	mergeLineOf,
+	type Monitor,
 	openBrowser,
 	parseCounts,
 	parsePRView,
+	type RunOptions,
 	run,
+	type Snapshot,
 	splitPRUrl,
 	summarize,
 	summarizeChecks,
 	summarizeReview,
-	type Execute,
-	type Snapshot,
+	type Tone,
 } from "../model.ts";
 
 test("run resolves with stdout", async () => {
-	const out = await run(
-		process.execPath,
-		["-e", "process.stdout.write('hi')"],
-		process.cwd(),
-		new AbortController().signal,
-	);
+	const out = await run(process.execPath, ["-e", "process.stdout.write('hi')"], {
+		cwd: process.cwd(),
+		signal: new AbortController().signal,
+	});
 	assert.equal(out, "hi");
 });
 
@@ -40,8 +44,10 @@ test("run scrubs repository-selecting env vars", async () => {
 		const out = await run(
 			process.execPath,
 			["-e", "process.stdout.write(process.env.GH_REPO ?? 'unset')"],
-			process.cwd(),
-			new AbortController().signal,
+			{
+				cwd: process.cwd(),
+				signal: new AbortController().signal,
+			},
 		);
 		assert.equal(out, "unset");
 	} finally {
@@ -51,25 +57,20 @@ test("run scrubs repository-selecting env vars", async () => {
 
 test("run rejects on timeout", async () => {
 	await assert.rejects(
-		run(
-			process.execPath,
-			["-e", "setTimeout(() => {}, 5000)"],
-			process.cwd(),
-			new AbortController().signal,
-			undefined,
-			100,
-		),
+		run(process.execPath, ["-e", "setTimeout(() => {}, 5000)"], {
+			cwd: process.cwd(),
+			signal: new AbortController().signal,
+			timeoutMs: 100,
+		}),
 	);
 });
 
 test("run rejects on missing binary", async () => {
 	await assert.rejects(
-		run(
-			"pr-sidebar-definitely-missing-binary",
-			[],
-			process.cwd(),
-			new AbortController().signal,
-		),
+		run("pr-sidebar-definitely-missing-binary", [], {
+			cwd: process.cwd(),
+			signal: new AbortController().signal,
+		}),
 	);
 });
 
@@ -92,33 +93,32 @@ const prViewBase = {
 };
 
 test("parsePRView accepts a valid payload and normalizes lenient fields", () => {
-	const pr = parsePRView(
-		JSON.stringify({ ...prViewBase, reviewDecision: null }),
-	);
+	const pr = parsePRView(JSON.stringify({ ...prViewBase, reviewDecision: null }));
 	assert.equal(pr.number, 42);
 	assert.equal(pr.state, "OPEN");
 	assert.equal(pr.reviewDecision, "");
 	assert.deepEqual(pr.statusCheckRollup, []);
+	const unknownEnums = parsePRView(
+		JSON.stringify({
+			...prViewBase,
+			reviewDecision: "COMMENTED",
+			mergeStateStatus: "SOME_NEW_STATUS",
+			mergeable: "MAYBE",
+		}),
+	);
+	assert.equal(unknownEnums.reviewDecision, "");
+	assert.equal(unknownEnums.mergeStateStatus, "UNKNOWN");
+	assert.equal(unknownEnums.mergeable, "UNKNOWN");
 });
 
 test("parsePRView rejects malformed payloads", () => {
 	assert.throws(() => parsePRView("not json"));
 	assert.throws(() => parsePRView(JSON.stringify(null)));
-	assert.throws(() =>
-		parsePRView(JSON.stringify({ ...prViewBase, number: 0 })),
-	);
-	assert.throws(() =>
-		parsePRView(JSON.stringify({ ...prViewBase, state: "DRAFT" })),
-	);
-	assert.throws(() =>
-		parsePRView(JSON.stringify({ ...prViewBase, isDraft: "no" })),
-	);
-	assert.throws(() =>
-		parsePRView(JSON.stringify({ ...prViewBase, additions: -1 })),
-	);
-	assert.throws(() =>
-		parsePRView(JSON.stringify({ ...prViewBase, statusCheckRollup: null })),
-	);
+	assert.throws(() => parsePRView(JSON.stringify({ ...prViewBase, number: 0 })));
+	assert.throws(() => parsePRView(JSON.stringify({ ...prViewBase, state: "DRAFT" })));
+	assert.throws(() => parsePRView(JSON.stringify({ ...prViewBase, isDraft: "no" })));
+	assert.throws(() => parsePRView(JSON.stringify({ ...prViewBase, additions: -1 })));
+	assert.throws(() => parsePRView(JSON.stringify({ ...prViewBase, statusCheckRollup: null })));
 	assert.throws(() =>
 		parsePRView(
 			JSON.stringify({
@@ -131,9 +131,7 @@ test("parsePRView rejects malformed payloads", () => {
 
 test("splitPRUrl rejects non-PR URLs", () => {
 	assert.throws(() => splitPRUrl("javascript:alert(1)"));
-	assert.throws(() =>
-		splitPRUrl("https://user:pass@github.com/owner/repo/pull/1"),
-	);
+	assert.throws(() => splitPRUrl("https://user:pass@github.com/owner/repo/pull/1"));
 	assert.throws(() => splitPRUrl("https://github.com/owner/repo/issues/1"));
 	assert.throws(() => splitPRUrl("https://github.com/owner/repo/pull/abc"));
 	assert.deepEqual(splitPRUrl("https://github.com/owner/repo/pull/42"), {
@@ -159,12 +157,7 @@ test("parseCounts sums totals and counts unresolved threads", () => {
 						reviews: { totalCount: 3 },
 						reviewThreads: {
 							totalCount: 4,
-							nodes: [
-								{ isResolved: false },
-								{ isResolved: true },
-								{ isResolved: false },
-								{},
-							],
+							nodes: [{ isResolved: false }, { isResolved: true }, { isResolved: false }, {}],
 						},
 					},
 				},
@@ -177,11 +170,7 @@ test("parseCounts sums totals and counts unresolved threads", () => {
 test("parseCounts rejects malformed payloads", () => {
 	assert.throws(() => parseCounts("not json"));
 	assert.throws(() => parseCounts(JSON.stringify({})));
-	assert.throws(() =>
-		parseCounts(
-			JSON.stringify({ data: { repository: { pullRequest: null } } }),
-		),
-	);
+	assert.throws(() => parseCounts(JSON.stringify({ data: { repository: { pullRequest: null } } })));
 	assert.throws(() =>
 		parseCounts(
 			JSON.stringify({
@@ -200,8 +189,8 @@ test("parseCounts rejects malformed payloads", () => {
 });
 
 test("countsQuery validates the PR number", () => {
-	assert.throws(() => countsQuery("o", "r", 0));
-	const query = countsQuery("o", "r", 42);
+	assert.throws(() => countsQuery({ owner: "o", repo: "r", number: 0 }));
+	const query = countsQuery({ owner: "o", repo: "r", number: 42 });
 	assert.match(query, /pullRequest\(number: 42\)/);
 });
 
@@ -213,18 +202,23 @@ test("fetch helpers use the locked argv shapes", async () => {
 	};
 	const signal = new AbortController().signal;
 	await fetchPRView("/repo", signal, execute);
-	await fetchCounts("o", "r", 7, "/repo", signal, execute);
-	assert.deepEqual(calls[0], {
+	await fetchCounts({ owner: "o", repo: "r", number: 7 }, "/repo", signal, execute);
+	assert.equal(calls.length, 2);
+	const prView = calls[0];
+	const counts = calls[1];
+	assert.ok(prView && counts);
+	assert.deepEqual(prView, {
 		file: "gh",
-		args: ["pr", "view", "--json", calls[0].args[3]],
+		args: ["pr", "view", "--json", prView.args[3]],
 	});
-	assert.ok(calls[0].args[3].includes("statusCheckRollup"));
-	assert.deepEqual(calls[1].file, "gh");
-	assert.ok(calls[1].args.includes("graphql"));
-	assert.match(
-		calls[1].args[calls[1].args.length - 1],
-		/^query=query \{ repository\(owner: "o", name: "r"\)/,
-	);
+	const fields = prView.args[3];
+	assert.ok(fields);
+	assert.ok(fields.includes("statusCheckRollup"));
+	assert.equal(counts.file, "gh");
+	assert.ok(counts.args.includes("graphql"));
+	const query = counts.args[counts.args.length - 1];
+	assert.ok(query);
+	assert.match(query, /^query=query \{\s*repository\(owner: "o", name: "r"\)/);
 });
 
 test("detectRepo resolves this repository and rejects non-repositories", async () => {
@@ -237,14 +231,8 @@ test("detectRepo resolves this repository and rejects non-repositories", async (
 });
 
 test("errorKind classifies lookup failures", () => {
-	assert.equal(
-		errorKind({ stderr: "no pull requests found for branch" }),
-		"absent",
-	);
-	assert.equal(
-		errorKind({ stderr: "none of the git remotes is a GitHub remote" }),
-		"absent",
-	);
+	assert.equal(errorKind({ stderr: "no pull requests found for branch" }), "absent");
+	assert.equal(errorKind({ stderr: "none of the git remotes is a GitHub remote" }), "absent");
 	assert.equal(errorKind({ code: "ENOENT" }), "cli-missing");
 	assert.equal(errorKind({ stderr: "HTTP 401 Bad credentials" }), "auth");
 	assert.equal(errorKind({ stderr: "API rate limit exceeded" }), "rate-limit");
@@ -272,9 +260,7 @@ const summaryBase = {
 } as const;
 
 function summaryPR(patch: Record<string, unknown>) {
-	return { ...summaryBase, ...patch } as unknown as Parameters<
-		typeof summarize
-	>[0];
+	return { ...summaryBase, ...patch } as unknown as Parameters<typeof summarize>[0];
 }
 
 test("summarizers map lifecycle and review decisions", () => {
@@ -282,11 +268,27 @@ test("summarizers map lifecycle and review decisions", () => {
 	assert.equal(lifecycleOf(summaryPR({ state: "CLOSED" })), "Closed");
 	assert.equal(lifecycleOf(summaryPR({ isDraft: true })), "Draft");
 	assert.equal(lifecycleOf(summaryPR({})), "Open");
-	assert.equal(summarizeReview("APPROVED"), "Approved");
-	assert.equal(summarizeReview("CHANGES_REQUESTED"), "Changes requested");
-	assert.equal(summarizeReview("REVIEW_REQUIRED"), "Review required");
-	assert.equal(summarizeReview(""), "No review decision");
-	assert.equal(summarizeReview("COMMENTED"), "No review decision");
+	assert.equal(summarizeReview["APPROVED"], "Approved");
+	assert.equal(summarizeReview["CHANGES_REQUESTED"], "Changes requested");
+	assert.equal(summarizeReview["REVIEW_REQUIRED"], "Review required");
+	assert.equal(summarizeReview[""], "No review decision");
+});
+
+test("MERGE_TONE assigns a tone to every merge line", () => {
+	assert.deepEqual(MERGE_TONE, {
+		Merged: "success",
+		"Closed without merging": "muted",
+		"Blocked: draft": "warning",
+		"Blocked: merge conflicts": "warning",
+		"Changes requested": "warning",
+		"Blocked by repository rules": "warning",
+		"Behind base branch": "warning",
+		"Checks not passing": "warning",
+		"Merge hooks must pass": "warning",
+		"Awaiting required review": "warning",
+		"Ready to merge": "success",
+		"Merge status unknown": "muted",
+	} satisfies Record<MergeLine, Tone>);
 });
 
 test("mergeLineOf follows combined state, not conflicts alone", () => {
@@ -301,21 +303,14 @@ test("mergeLineOf follows combined state, not conflicts alone", () => {
 		[{ mergeStateStatus: "BEHIND" }, "Behind base branch"],
 		[{ mergeStateStatus: "UNSTABLE" }, "Checks not passing"],
 		[{ mergeStateStatus: "HAS_HOOKS" }, "Merge hooks must pass"],
-		[
-			{ reviewDecision: "REVIEW_REQUIRED", mergeStateStatus: "CLEAN" },
-			"Awaiting required review",
-		],
+		[{ reviewDecision: "REVIEW_REQUIRED", mergeStateStatus: "CLEAN" }, "Awaiting required review"],
 		[{ mergeStateStatus: "UNKNOWN" }, "Merge status unknown"],
 		[{ mergeable: "UNKNOWN" }, "Merge status unknown"],
 		[{ state: "MERGED" }, "Merged"],
 		[{ state: "CLOSED" }, "Closed without merging"],
 	];
 	for (const [patch, expected] of cases) {
-		assert.equal(
-			mergeLineOf(summaryPR(patch)),
-			expected,
-			JSON.stringify(patch),
-		);
+		assert.equal(mergeLineOf(summaryPR(patch)), expected, JSON.stringify(patch));
 	}
 });
 
@@ -357,6 +352,21 @@ test("summarizeChecks aggregates without inventing results", () => {
 		{ __typename: "StatusContext", state: "SKIPPED" },
 	]);
 	assert.deepEqual(counts, { passed: 2, failed: 8, pending: 3, skipped: 3 });
+});
+
+test("checksLineOf summarizes the check counts", () => {
+	assert.equal(
+		checksLineOf({ passed: 0, failed: 0, pending: 0, skipped: 0 }),
+		"No checks reported",
+	);
+	assert.equal(
+		checksLineOf({ passed: 1, failed: 1, pending: 0, skipped: 0 }),
+		"Checks: 1 passed / 1 failed / 0 pending",
+	);
+	assert.equal(
+		checksLineOf({ passed: 2, failed: 0, pending: 1, skipped: 3 }),
+		"Checks: 2 passed / 0 failed / 1 pending / 3 skipped",
+	);
 });
 
 test("summarize composes the card lines", () => {
@@ -411,7 +421,7 @@ function monitorCounts() {
 }
 
 type MonitorHarness = {
-	monitor: ReturnType<typeof createMonitor>;
+	monitor: Monitor;
 	states: Snapshot[];
 	ghCalls: number;
 	setBranch: (branch: string) => void;
@@ -421,7 +431,7 @@ type MonitorHarness = {
 };
 
 function setupMonitor(): MonitorHarness {
-	let clock = 100000;
+	let clock = 100_000;
 	let branch = "feature";
 	let failure: unknown;
 	let ghCalls = 0;
@@ -475,8 +485,11 @@ function setupMonitor(): MonitorHarness {
 	};
 }
 
-const state = (harness: MonitorHarness): Snapshot =>
-	harness.states[harness.states.length - 1];
+const state = (harness: MonitorHarness): Snapshot => {
+	const last = harness.states[harness.states.length - 1];
+	assert.ok(last);
+	return last;
+};
 
 test("monitor throttles GitHub, bypasses on force and activity", async () => {
 	const harness = setupMonitor();
@@ -488,7 +501,7 @@ test("monitor throttles GitHub, bypasses on force and activity", async () => {
 	harness.monitor.tick();
 	await harness.flush();
 	assert.equal(harness.ghCalls, 2);
-	harness.setClock(100000 + 10000);
+	harness.setClock(100_000 + 10_000);
 	harness.monitor.tick(false, true);
 	await harness.flush();
 	await harness.flush();
@@ -566,12 +579,12 @@ test("monitor discards in-flight responses on branch change and stop", async () 
 			publish: (value) => {
 				states.push(value);
 			},
-			execute: (async (file: string, args: string[], _cwd: string) => {
+			execute: (async (file: string, args: string[], { cwd }: RunOptions) => {
 				if (args.includes("graphql")) {
 					return monitorCounts();
 				}
 				if (file === "git") {
-					return `${_cwd}\n${branch}\n`;
+					return `${cwd}\n${branch}\n`;
 				}
 				return new Promise<string>((resolve) => {
 					waiting.push({ resolve });
@@ -587,10 +600,13 @@ test("monitor discards in-flight responses on branch change and stop", async () 
 			cwd = "/repo-b";
 			monitor.tick();
 		}
-		waiting[0].resolve(JSON.stringify(monitorBase));
+		const pendingRequest = waiting[0];
+		assert.ok(pendingRequest);
+		pendingRequest.resolve(JSON.stringify(monitorBase));
 		await new Promise<void>((resolve) => setImmediate(resolve));
 		await new Promise<void>((resolve) => setImmediate(resolve));
 		const last = states[states.length - 1];
+		assert.ok(last);
 		assert.equal(last.pr, null);
 		monitor.stop();
 	}
@@ -612,7 +628,9 @@ test("non-repositories publish no PR and query no GitHub", async () => {
 	monitor.tick();
 	await new Promise<void>((resolve) => setImmediate(resolve));
 	assert.deepEqual(files, ["git"]);
-	assert.equal(states[states.length - 1].pr, null);
+	const last = states[states.length - 1];
+	assert.ok(last);
+	assert.equal(last.pr, null);
 	monitor.stop();
 });
 
@@ -648,25 +666,19 @@ test("openBrowser launches the platform launcher with the full URL", async () =>
 	for (const [platform, env, launcher] of cases) {
 		const signal = new AbortController().signal;
 		let calls = 0;
-		const message = await openBrowser(
-			"https://github.com/o/r/pull/1",
-			"/repo",
-			signal,
-			{
-				platform,
-				env,
-				execute: async (...args) => {
-					calls++;
-					assert.deepEqual(args, [
-						launcher,
-						["https://github.com/o/r/pull/1"],
-						"/repo",
-						signal,
-					]);
-					return "";
-				},
+		const message = await openBrowser("https://github.com/o/r/pull/1", "/repo", signal, {
+			platform,
+			env,
+			execute: async (...call) => {
+				calls++;
+				assert.deepEqual(call, [
+					launcher,
+					["https://github.com/o/r/pull/1"],
+					{ cwd: "/repo", signal },
+				]);
+				return "";
 			},
-		);
+		});
 		assert.equal(calls, 1);
 		assert.equal(message, undefined);
 	}
@@ -690,30 +702,20 @@ test("openBrowser reports launcher failures and stays silent after disposal", as
 	}
 	const controller = new AbortController();
 	assert.equal(
-		await openBrowser(
-			"https://github.com/o/r/pull/1",
-			"/repo",
-			controller.signal,
-			{
-				platform: "darwin",
-				env: {},
-				execute: async () => {
-					controller.abort();
-					throw new Error("aborted");
-				},
+		await openBrowser("https://github.com/o/r/pull/1", "/repo", controller.signal, {
+			platform: "darwin",
+			env: {},
+			execute: async () => {
+				controller.abort();
+				throw new Error("aborted");
 			},
-		),
+		}),
 		undefined,
 	);
 	assert.equal(
-		await openBrowser(
-			"https://github.com/o/r/pull/1",
-			"/repo",
-			controller.signal,
-			{
-				execute: async () => assert.fail("must not launch after disposal"),
-			},
-		),
+		await openBrowser("https://github.com/o/r/pull/1", "/repo", controller.signal, {
+			execute: async () => assert.fail("must not launch after disposal"),
+		}),
 		undefined,
 	);
 });
@@ -728,24 +730,19 @@ test("copyToClipboard uses the platform clipboard and reports failure", async ()
 	for (const [platform, env, file, args] of cases) {
 		const signal = new AbortController().signal;
 		let seen = false;
-		const ok = await copyToClipboard(
-			"https://github.com/o/r/pull/1",
-			"/repo",
-			signal,
-			{
-				platform,
-				env,
-				execute: async (f, a, cwd, sig, input) => {
-					seen = true;
-					assert.equal(f, file);
-					assert.deepEqual(a, args);
-					assert.equal(cwd, "/repo");
-					assert.equal(sig, signal);
-					assert.equal(input, "https://github.com/o/r/pull/1");
-					return "";
-				},
+		const ok = await copyToClipboard("https://github.com/o/r/pull/1", "/repo", signal, {
+			platform,
+			env,
+			execute: async (f, a, { cwd, signal: sig, input }) => {
+				seen = true;
+				assert.equal(f, file);
+				assert.deepEqual(a, args);
+				assert.equal(cwd, "/repo");
+				assert.equal(sig, signal);
+				assert.equal(input, "https://github.com/o/r/pull/1");
+				return "";
 			},
-		);
+		});
 		assert.equal(seen, true);
 		assert.equal(ok, true);
 	}
@@ -770,7 +767,7 @@ test("copyToClipboard uses the platform clipboard and reports failure", async ()
 });
 
 test("disposing the monitor stops all polling work", async () => {
-	let clock = 100000;
+	let clock = 100_000;
 	let ghCalls = 0;
 	const states: Snapshot[] = [];
 	const monitor = createMonitor({
